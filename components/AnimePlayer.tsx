@@ -1,0 +1,500 @@
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Anime, Episode, Settings } from '../types';
+import Notes from './Notes';
+import { BackIcon, ChevronDoubleLeftIcon, ChevronDoubleRightIcon, TrashIcon } from './icons';
+
+interface AnimePlayerProps {
+    anime: Anime;
+    settings: Settings;
+    onClose: () => void;
+    containerClassName?: string;
+}
+
+const Resizer: React.FC<{ onMouseDown: (e: React.MouseEvent) => void; orientation: 'vertical' | 'horizontal' }> = ({ onMouseDown, orientation }) => {
+    const baseClasses = "flex-shrink-0 bg-transparent transition-colors duration-200";
+    const verticalClasses = "w-2 cursor-col-resize group";
+    const horizontalClasses = "h-2 cursor-row-resize group";
+    const innerVerticalClasses = "w-0.5 h-full bg-slate-400/30 group-hover:bg-theme-lime mx-auto";
+    const innerHorizontalClasses = "h-0.5 w-full bg-slate-400/30 group-hover:bg-theme-lime my-auto";
+
+    return (
+        <div onMouseDown={onMouseDown} className={`${baseClasses} ${orientation === 'vertical' ? verticalClasses : horizontalClasses}`}>
+            <div className={orientation === 'vertical' ? innerVerticalClasses : innerHorizontalClasses} />
+        </div>
+    );
+};
+
+const UtilityPanel: React.FC<{ title: string; children: React.ReactNode; settings: Settings; className?: string }> = ({ title, children, settings, className }) => {
+    const panelClasses = ['glass-ui', 'liquid-glass'].includes(settings.theme)
+        ? 'glass-card' 
+        : 'bg-white/5 dark:bg-black/20 backdrop-blur-lg border border-white/10 dark:border-white/10';
+    const borderClass = ['glass-ui', 'liquid-glass'].includes(settings.theme) ? 'border-white/20' : 'border-slate-300/50 dark:border-slate-700/50';
+    const headingColor = ['glass-ui', 'liquid-glass'].includes(settings.theme) ? '' : 'text-theme-olive dark:text-theme-lime';
+
+    return (
+        <div className={`rounded-2xl flex flex-col h-full overflow-hidden ${panelClasses} ${className}`}>
+            <h3 className={`text-base font-bold p-3 border-b ${borderClass} flex-shrink-0 ${headingColor}`}>
+                {title}
+            </h3>
+            <div className="flex-grow p-2 sm:p-4 overflow-y-auto no-scrollbar">
+                {children}
+            </div>
+        </div>
+    );
+};
+
+const Calendar: React.FC<{ settings: Settings }> = ({ settings }) => {
+    const [date, setDate] = useState(new Date());
+
+    const renderHeader = () => {
+        const dateFormat = new Intl.DateTimeFormat('vi-VN', { month: 'long', year: 'numeric' });
+        return (
+            <div className="flex justify-between items-center mb-4">
+                <button onClick={() => setDate(new Date(date.getFullYear(), date.getMonth() - 1, 1))} className="p-1.5 rounded-full hover:bg-slate-500/10 transition-colors">&lt;</button>
+                <span className="font-bold text-lg">{dateFormat.format(date)}</span>
+                <button onClick={() => setDate(new Date(date.getFullYear(), date.getMonth() + 1, 1))} className="p-1.5 rounded-full hover:bg-slate-500/10 transition-colors">&gt;</button>
+            </div>
+        );
+    };
+
+    const renderDays = () => {
+        const weekdays = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+        return <div className="grid grid-cols-7 text-center text-xs font-semibold text-slate-500 dark:text-slate-400">{weekdays.map(day => <div key={day}>{day}</div>)}</div>;
+    };
+
+    const renderCells = () => {
+        const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
+        const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+        const startDate = new Date(monthStart);
+        startDate.setDate(startDate.getDate() - monthStart.getDay());
+        
+        const cells = [];
+        let currentDate = new Date(startDate);
+        const today = new Date();
+
+        for (let i = 0; i < 42; i++) {
+            const isCurrentMonth = currentDate.getMonth() === date.getMonth();
+            const isToday = currentDate.getDate() === today.getDate() && currentDate.getMonth() === today.getMonth() && currentDate.getFullYear() === today.getFullYear();
+            
+            const cellClass = `w-8 h-8 flex items-center justify-center rounded-full text-sm ${
+                isToday ? 'bg-theme-lime text-theme-darkest' :
+                isCurrentMonth ? 'text-slate-800 dark:text-slate-200' :
+                'text-slate-400 dark:text-slate-600'
+            }`;
+
+            cells.push(<div key={currentDate.toString()} className={cellClass}>{currentDate.getDate()}</div>);
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+        return <div className="grid grid-cols-7 gap-y-1 place-items-center mt-2">{cells}</div>;
+    };
+
+    return (
+        <div className="h-full">
+            {renderHeader()}
+            {renderDays()}
+            {renderCells()}
+        </div>
+    );
+};
+
+interface Todo { id: number; text: string; completed: boolean; }
+const TodoList: React.FC<{ settings: Settings }> = ({ settings }) => {
+    const [todos, setTodos] = useState<Todo[]>(() => {
+        const savedTodos = localStorage.getItem('todos');
+        return savedTodos ? JSON.parse(savedTodos) : [];
+    });
+    const [input, setInput] = useState('');
+
+    useEffect(() => {
+        localStorage.setItem('todos', JSON.stringify(todos));
+    }, [todos]);
+
+    const addTodo = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (input.trim() === '') return;
+        setTodos([...todos, { id: Date.now(), text: input, completed: false }]);
+        setInput('');
+    };
+
+    const toggleTodo = (id: number) => {
+        setTodos(todos.map(todo => todo.id === id ? { ...todo, completed: !todo.completed } : todo));
+    };
+
+    const deleteTodo = (id: number) => {
+        setTodos(todos.filter(todo => todo.id !== id));
+    };
+
+    return (
+        <div className="h-full flex flex-col">
+            <form onSubmit={addTodo} className="flex gap-2 mb-4">
+                <input
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder="Thêm công việc mới..."
+                    className="flex-grow bg-slate-200/50 dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700 rounded-md py-1.5 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-theme-lime"
+                />
+                <button type="submit" className="bg-theme-lime text-theme-darkest px-3 py-1.5 rounded-md text-sm font-semibold">+</button>
+            </form>
+            <ul className="space-y-2 overflow-y-auto">
+                {todos.map(todo => (
+                    <li key={todo.id} className="flex items-center gap-2 group">
+                        <input type="checkbox" checked={todo.completed} onChange={() => toggleTodo(todo.id)} className="w-4 h-4 rounded text-theme-lime focus:ring-theme-lime bg-slate-300 dark:bg-slate-700 border-slate-400 dark:border-slate-600"/>
+                        <span className={`flex-grow text-sm ${todo.completed ? 'line-through text-slate-500' : 'text-slate-800 dark:text-slate-200'}`}>{todo.text}</span>
+                        <button onClick={() => deleteTodo(todo.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-red-500"><TrashIcon className="w-4 h-4"/></button>
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+};
+
+const Stopwatch: React.FC<{ settings: Settings }> = ({ settings }) => {
+    const [time, setTime] = useState(0);
+    const [isRunning, setIsRunning] = useState(false);
+    const timerRef = useRef<number | null>(null);
+
+    useEffect(() => {
+        if (isRunning) {
+            timerRef.current = window.setInterval(() => {
+                setTime(prev => prev + 10);
+            }, 10);
+        } else if (timerRef.current) {
+            clearInterval(timerRef.current);
+        }
+        return () => {
+            if (timerRef.current) clearInterval(timerRef.current);
+        };
+    }, [isRunning]);
+
+    const formatTime = () => {
+        const minutes = Math.floor(time / 60000).toString().padStart(2, '0');
+        const seconds = Math.floor((time % 60000) / 1000).toString().padStart(2, '0');
+        const milliseconds = (time % 1000).toString().padStart(3, '0').slice(0, 2);
+        return `${minutes}:${seconds}.${milliseconds}`;
+    };
+
+    return (
+        <div className="h-full flex flex-col items-center justify-center">
+            <div className="font-mono text-5xl tracking-tighter mb-6">{formatTime()}</div>
+            <div className="flex gap-4">
+                <button onClick={() => setIsRunning(!isRunning)} className={`px-6 py-2 rounded-md font-semibold text-sm ${isRunning ? 'bg-red-500/80 text-white' : 'bg-theme-lime text-theme-darkest'}`}>{isRunning ? 'Dừng' : 'Bắt đầu'}</button>
+                <button onClick={() => { setTime(0); setIsRunning(false); }} className="px-6 py-2 rounded-md font-semibold text-sm bg-slate-300/50 dark:bg-slate-700/50">Reset</button>
+            </div>
+        </div>
+    );
+};
+
+const AnimePlayer: React.FC<AnimePlayerProps> = ({ anime, settings, onClose, containerClassName }) => {
+    const { blockNewTabs, showNotes, disablePopupPlayer, theme, showCalendar, showTodoList, showStopwatch, resizablePanes, enableHoverAnimation } = settings;
+    const [currentEpisode, setCurrentEpisode] = useState<Episode>(anime.episodes[0]);
+    const [isEpisodeListOpen, setIsEpisodeListOpen] = useState(true);
+    const episodeListRef = useRef<HTMLUListElement>(null);
+
+    // Resizable panes state and logic
+    const [listPanelWidth, setListPanelWidth] = useState(576); // 36rem
+    const [utilityPanelWidth, setUtilityPanelWidth] = useState(320); // w-80
+
+    const containerRef = useRef<HTMLDivElement>(null);
+    const resizingPanel = useRef<'list' | 'utility' | null>(null);
+    const startX = useRef(0);
+    const startWidth = useRef(0);
+
+    const handleMouseDown = useCallback((panel: 'list' | 'utility') => (e: React.MouseEvent) => {
+        if (!resizablePanes) return;
+        e.preventDefault();
+        resizingPanel.current = panel;
+        startX.current = e.clientX;
+        startWidth.current = panel === 'list' ? listPanelWidth : utilityPanelWidth;
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+    }, [resizablePanes, listPanelWidth, utilityPanelWidth]);
+
+    useEffect(() => {
+        if (!resizablePanes) return;
+
+        const handleMouseMove = (e: MouseEvent) => {
+            if (!resizingPanel.current || !containerRef.current) return;
+            
+            const dx = e.clientX - startX.current;
+            const containerRect = containerRef.current.getBoundingClientRect();
+            
+            if (resizingPanel.current === 'list') {
+                const newWidth = startWidth.current + dx;
+                setListPanelWidth(Math.max(300, Math.min(newWidth, containerRect.width * 0.5)));
+            } else if (resizingPanel.current === 'utility') {
+                const newWidth = startWidth.current - dx;
+                setUtilityPanelWidth(Math.max(250, Math.min(newWidth, containerRect.width * 0.4)));
+            }
+        };
+
+        const handleMouseUp = () => {
+            resizingPanel.current = null;
+            document.body.style.cursor = 'default';
+            document.body.style.userSelect = '';
+        };
+
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [resizablePanes]);
+
+    useEffect(() => {
+        if (episodeListRef.current) {
+            const activeElement = episodeListRef.current.querySelector(`[data-episode-link="${currentEpisode.link}"]`) as HTMLElement;
+            if (activeElement) {
+                activeElement.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'nearest',
+                });
+            }
+        }
+    }, [currentEpisode]);
+
+    const getPlaybackLink = (link: string): string => {
+        if (!link) return '';
+        try {
+            const url = new URL(link);
+            url.searchParams.set('autoplay', '1');
+            url.searchParams.set('mute', '1'); 
+            return url.toString();
+        } catch (e) {
+            console.error('Invalid URL for playback, using fallback:', link, e);
+            const params = 'autoplay=1&mute=1';
+            return link.includes('?') ? `${link}&${params}` : `${link}?${params}`;
+        }
+    };
+    
+    const playbackSrc = getPlaybackLink(currentEpisode.link);
+
+    const utilityPanels = [
+        showNotes && { id: 'notes', title: 'Ghi chú', component: <Notes settings={settings} isTiled /> },
+        showCalendar && { id: 'calendar', title: 'Lịch', component: <Calendar settings={settings} /> },
+        showTodoList && { id: 'todolist', title: 'Công việc', component: <TodoList settings={settings} /> },
+        showStopwatch && { id: 'stopwatch', title: 'Bấm giờ', component: <Stopwatch settings={settings} /> },
+    ].filter(Boolean) as { id: string; title: string; component: React.ReactNode; }[];
+
+    const hoverEffectClass = enableHoverAnimation ? 'transform hover:scale-[1.02] transition-transform' : '';
+
+    if (disablePopupPlayer) {
+        const popupPlayerClasses = ['glass-ui', 'liquid-glass'].includes(theme) 
+            ? 'glass-card'
+            : 'bg-theme-darkest/95 backdrop-blur-lg border-l border-white/10';
+        
+        return (
+            <div className="fixed inset-0 bg-black z-60 animate-fade-in">
+                <div className="w-full h-full">
+                    <iframe
+                        key={currentEpisode.link}
+                        src={playbackSrc}
+                        title={currentEpisode.episodeTitle}
+                        allow="autoplay; encrypted-media; picture-in-picture"
+                        allowFullScreen
+                        sandbox={blockNewTabs ? "allow-scripts allow-same-origin allow-presentation" : "allow-scripts allow-same-origin allow-popups allow-presentation"}
+                        className="w-full h-full border-0"
+                    ></iframe>
+                </div>
+                
+                <button
+                    onClick={onClose}
+                    className="absolute top-4 left-4 z-70 bg-black/50 hover:bg-black/80 text-white rounded-full p-2 transition-colors"
+                    aria-label="Trở về trang chủ"
+                >
+                    <BackIcon className="w-8 h-8" />
+                </button>
+
+                 {!isEpisodeListOpen && (
+                     <button
+                        onClick={() => setIsEpisodeListOpen(true)}
+                        className="absolute top-1/2 -translate-y-1/2 right-0 bg-black/50 hover:bg-black/80 text-white rounded-l-full p-2 transition-opacity duration-300 z-70"
+                        aria-label="Hiện danh sách tập"
+                    >
+                        <ChevronDoubleLeftIcon className="w-6 h-6" />
+                    </button>
+                )}
+
+                <div 
+                    className={`absolute top-0 right-0 h-full w-full max-w-xs sm:max-w-sm z-70 flex flex-col transition-transform duration-300 ease-in-out ${popupPlayerClasses} ${
+                        isEpisodeListOpen ? 'translate-x-0' : 'translate-x-full'
+                    }`}
+                >
+                    <div className="p-4 border-b border-slate-700 flex-shrink-0 flex justify-between items-center">
+                        <div>
+                            <h3 className="text-xl font-bold text-theme-lime line-clamp-1">{anime.name}</h3>
+                            <p className="text-slate-300 line-clamp-1 mt-1">{currentEpisode.episodeTitle}</p>
+                        </div>
+                        <button
+                            onClick={() => setIsEpisodeListOpen(false)}
+                            className="text-white hover:bg-slate-700/50 p-2 rounded-full"
+                            aria-label="Ẩn danh sách tập"
+                        >
+                            <ChevronDoubleRightIcon className="w-6 h-6" />
+                        </button>
+                    </div>
+
+                    <div className="flex-grow overflow-y-auto no-scrollbar">
+                         <ul className="p-2 space-y-1">
+                            {anime.episodes.map((episode, index) => (
+                                <li key={index}>
+                                    <button
+                                        onClick={() => setCurrentEpisode(episode)}
+                                        className={`w-full text-left p-3 h-16 transition-all duration-300 relative block rounded-xl flex items-center group ${
+                                            currentEpisode.link === episode.link
+                                                ? 'bg-theme-lime/20 border-l-4 border-theme-lime'
+                                                : 'border-l-4 border-transparent hover:bg-slate-500/20'
+                                        }`}
+                                    >
+                                        <span className={`absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold transition-all duration-300 ${currentEpisode.link === episode.link ? 'text-theme-lime -translate-x-1' : 'text-slate-400 group-hover:text-slate-300'}`}>
+                                            {String(index + 1).padStart(2, '0')}
+                                        </span>
+                                        <div className="pl-8">
+                                            <h3 className={`text-base font-semibold text-white transition-all duration-300 line-clamp-2 ${currentEpisode.link === episode.link ? 'text-white' : 'text-slate-300'}`}>
+                                                {episode.episodeTitle}
+                                            </h3>
+                                        </div>
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                </div>
+                <style>{`
+                    @keyframes fade-in {
+                        from { opacity: 0; }
+                        to { opacity: 1; }
+                    }
+                    .animate-fade-in { animation: fade-in 0.3s ease-out forwards; }
+                    .line-clamp-1 {
+                        overflow: hidden;
+                        display: -webkit-box;
+                        -webkit-box-orient: vertical;
+                        -webkit-line-clamp: 1;
+                    }
+                     .line-clamp-2 {
+                        overflow: hidden;
+                        display: -webkit-box;
+                        -webkit-box-orient: vertical;
+                        -webkit-line-clamp: 2;
+                    }
+                    .no-scrollbar::-webkit-scrollbar { display: none; }
+                    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+                `}</style>
+            </div>
+        );
+    }
+
+    const containerClasses = ['glass-ui', 'liquid-glass'].includes(theme)
+        ? 'glass-card'
+        : 'bg-white/5 dark:bg-black/20 backdrop-blur-xl border border-white/10 dark:border-white/10';
+    
+    const panelCount = utilityPanels.length;
+    let utilityPaneGridClasses = '';
+    switch (panelCount) {
+        case 1: utilityPaneGridClasses = 'grid grid-cols-1 grid-rows-1'; break;
+        case 2: utilityPaneGridClasses = 'grid grid-rows-2 gap-2 sm:gap-4'; break;
+        case 3: utilityPaneGridClasses = 'grid grid-cols-2 grid-rows-2 gap-2 sm:gap-4'; break;
+        case 4: utilityPaneGridClasses = 'grid grid-cols-2 grid-rows-2 gap-2 sm:gap-4'; break;
+        default: break;
+    }
+
+    return (
+        <main className={`h-screen w-screen flex items-center justify-center ${containerClassName}`}>
+            <div ref={containerRef} className={`w-full h-full rounded-3xl shadow-2xl flex flex-col-reverse md:flex-row p-1 sm:p-2 gap-2 ${containerClasses}`}>
+                {/* Left Column: Episode List */}
+                <div 
+                    style={resizablePanes ? { flex: `0 0 ${listPanelWidth}px` } : {}}
+                    className={`flex-shrink-0 w-full md:w-auto h-1/3 md:h-full rounded-2xl flex flex-col ${!resizablePanes ? 'md:w-[36rem]' : ''}`}
+                >
+                    <div className="flex-shrink-0 p-4 border-b border-slate-300/50 dark:border-slate-700/50 flex justify-between items-center">
+                        <h3 className={`text-xl font-bold ${['glass-ui', 'liquid-glass'].includes(theme) ? '' : 'text-theme-lime'}`}>Danh sách tập</h3>
+                        <button onClick={onClose} className="p-1.5 rounded-full hover:bg-slate-500/20 transition-colors" aria-label="Trở về trang chủ">
+                            <BackIcon className="w-6 h-6" />
+                        </button>
+                    </div>
+                    <div className="flex-grow overflow-y-auto p-1 sm:p-2 no-scrollbar">
+                        <ul ref={episodeListRef} className="space-y-1">
+                            {anime.episodes.map((episode, index) => (
+                                <li key={index} data-episode-link={episode.link}>
+                                    <button
+                                        onClick={() => setCurrentEpisode(episode)}
+                                        className={`w-full text-left p-3 h-20 transition-all duration-300 relative block rounded-xl flex items-center group ${
+                                            currentEpisode.link === episode.link
+                                                ? 'bg-theme-lime/20 dark:bg-theme-lime/10 border-l-4 border-theme-lime'
+                                                : 'border-l-4 border-transparent hover:bg-slate-500/10'
+                                        } ${hoverEffectClass}`}
+                                    >
+                                        <span className={`absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-sm font-bold transition-all duration-300 ${currentEpisode.link === episode.link ? 'text-theme-lime -translate-x-2' : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-500 dark:group-hover:text-slate-400'}`}>
+                                            {String(index + 1).padStart(2, '0')}
+                                        </span>
+                                        <div className="pl-8 sm:pl-10">
+                                            <h3 className={`text-base font-semibold transition-all duration-300 line-clamp-2 ${currentEpisode.link === episode.link ? 'text-theme-darkest dark:text-white' : 'text-slate-700 dark:text-slate-300'}`}>
+                                                {episode.episodeTitle}
+                                            </h3>
+                                        </div>
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                </div>
+
+                {resizablePanes && <Resizer onMouseDown={handleMouseDown('list')} orientation="vertical" />}
+
+                {/* Right Column: Player and Utilities */}
+                <div className="flex-grow h-2/3 md:h-full flex flex-col md:flex-row gap-2 sm:gap-4 overflow-hidden">
+                    <div className="flex-grow h-full flex flex-col p-2 sm:p-4">
+                         <div className={`flex-grow aspect-video rounded-lg overflow-hidden shadow-2xl shadow-black/50 ${['glass-ui', 'liquid-glass'].includes(theme) ? 'glass-card' : 'bg-black border border-slate-700'}`}>
+                            <iframe
+                                key={currentEpisode.link}
+                                src={playbackSrc}
+                                title={currentEpisode.episodeTitle}
+                                allow="autoplay; encrypted-media; picture-in-picture"
+                                allowFullScreen
+                                sandbox={blockNewTabs ? "allow-scripts allow-same-origin allow-presentation" : "allow-scripts allow-same-origin allow-popups allow-presentation"}
+                                className="w-full h-full"
+                            ></iframe>
+                        </div>
+                    </div>
+                    
+                    {utilityPanels.length > 0 && resizablePanes && (
+                       <Resizer onMouseDown={handleMouseDown('utility')} orientation="vertical" />
+                    )}
+
+                    {utilityPanels.length > 0 && (
+                         <div 
+                            style={resizablePanes ? { flex: `0 0 ${utilityPanelWidth}px` } : {}}
+                            className={`flex-shrink-0 w-full h-auto md:h-full md:w-auto p-2 sm:p-0 ${!resizablePanes ? 'md:w-72 xl:w-80' : ''} ${utilityPaneGridClasses}`}
+                        >
+                             {utilityPanels.map((panel, index) => {
+                                let panelSpecificClass = '';
+                                if(panelCount === 3 && index === 0) {
+                                    panelSpecificClass = 'md:col-span-2';
+                                }
+                                return (
+                                <UtilityPanel key={panel.id} title={panel.title} settings={settings} className={panelSpecificClass}>
+                                    {panel.component}
+                                </UtilityPanel>
+                                );
+                            })}
+                         </div>
+                    )}
+                </div>
+            </div>
+             <style>{`
+                .no-scrollbar::-webkit-scrollbar { display: none; }
+                .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+                .line-clamp-2 {
+                    display: -webkit-box;
+                    -webkit-line-clamp: 2;
+                    -webkit-box-orient: vertical;
+                    overflow: hidden;
+                }
+            `}</style>
+        </main>
+    );
+};
+
+export default AnimePlayer;

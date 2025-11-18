@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Anime Streaming</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              'theme-lightest': 'var(--theme-lightest)',
+              'theme-mint': 'var(--theme-mint)',
+              'theme-lime': 'var(--theme-lime)',
+              'theme-olive': 'var(--theme-olive)',
+              'theme-darkest': 'var(--theme-darkest)',
+            }
+          }
+        }
+      }
+    </script>
+    <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+  <script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://esm.sh/react-dom@18.2.0/",
+    "react/": "https://esm.sh/react@18.2.0/",
+    "react": "https://esm.sh/react@18.2.0"
+  }
+}
+</script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&family=Lato:ital,wght@0,400;0,700;1,400&family=Merriweather:ital,wght@0,400;0,700;1,400&family=Montserrat:wght@400;500;700;800&family=Nunito:ital,wght@0,400;0,500;0,700;0,800;1,400&family=Open+Sans:ital,wght@0,400;0,500;0,700;0,800;1,400&family=Playfair+Display:ital,wght@0,400;0,500;0,700;0,800;1,400&family=Poppins:wght@400;500;700;800&family=Roboto:wght@400;500;700&family=Source+Code+Pro:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+      :root,
+      :root[data-theme='green-screen'] {
+        --font-family: 'Inter', sans-serif;
+        --theme-lightest: #F4FFFC;
+        --theme-mint: #91EAAF;
+        --theme-lime: #C3E956;
+        --theme-olive: #4D7111;
+        --theme-darkest: #1F4B2C;
+      }
+      :root[data-theme='retro-magic'] {
+        --theme-lightest: #FFF7AD;
+        --theme-mint: #FFB3AE;
+        --theme-lime: #FF49C1;
+        --theme-olive: #6A1452;
+        --theme-darkest: #44113E;
+      }
+      :root[data-theme='coral-wave'] {
+        --theme-lightest: #FCEDD8;
+        --theme-mint: #FFD464;
+        --theme-lime: #FF5E5E;
+        --theme-olive: #E23C64;
+        --theme-darkest: #B0183D;
+      }
+      :root[data-theme='deep-space'] {
+        --theme-lightest: #BB63FF;
+        --theme-mint: #5B58EB;
+        --theme-lime: #56E1E9;
+        --theme-olive: #112C71;
+        --theme-darkest: #0A2353;
+      }
+      :root[data-theme='jade-horizon'] {
+        --theme-lightest: #E6F5E7;
+        --theme-mint: #B7E5BA;
+        --theme-lime: #5CA87C;
+        --theme-olive: #288760;
+        --theme-darkest: #1A5140; 
+      }
+      :root[data-theme='sunny-attitude'] {
+        --theme-lightest: #FEEAF0;
+        --theme-mint: #F0D0C7;
+        --theme-lime: #F09410;
+        --theme-olive: #BC430D;
+        --theme-darkest: #241705;
+      }
+      :root[data-theme='misty-forest'] {
+        --theme-lightest: #F2E0DF;
+        --theme-mint: #BDCDCF;
+        --theme-lime: #E3B8B8;
+        --theme-olive: #034C36;
+        --theme-darkest: #003332;
+      }
+      :root[data-theme='cyber-glow'] {
+        --theme-lightest: #FFE5F1;
+        --theme-mint: #87F5F5;
+        --theme-lime: #F042FF;
+        --theme-olive: #7226FF;
+        --theme-darkest: #160078;
+      }
+      :root[data-theme='glass-ui'] {
+        --theme-lightest: #ffffff;
+        --theme-mint: #ACD6FF;
+        --theme-lime: #FF708C;
+        --theme-olive: #8969FF;
+        --theme-darkest: #101222;
+      }
+      :root[data-theme='liquid-glass'] {
+        --theme-lightest: #f0f8ff;
+        --theme-mint: #89cff0;
+        --theme-lime: #a0e9ff;
+        --theme-olive: #5f9ea0;
+        --theme-darkest: #003366;
+      }
+      :root[data-theme='oceanic-blue'] {
+        --theme-lightest: #D6E8EE;
+        --theme-mint: #97CADB;
+        --theme-lime: #018ABE;
+        --theme-olive: #02457A;
+        --theme-darkest: #001B48;
+      }
+      :root[data-theme='unicorn'] {
+        --theme-lightest: #ECFDFF;
+        --theme-mint: #41F0D1;
+        --theme-lime: #A8FFC8;
+        --theme-olive: #008B8B;
+        --theme-darkest: #012A29;
+      }
+      :root[data-theme='sky-glider'] {
+        --theme-lightest: #E6F3FF;
+        --theme-mint: #62BDFF;
+        --theme-lime: #A08FFF;
+        --theme-olive: #3D10BD;
+        --theme-darkest: #0D033A;
+      }
+
+      html[data-theme='glass-ui'].light body, 
+      html[data-theme='glass-ui'].dark body {
+        background: linear-gradient(160deg, #a7d7ff 0%, #ff708c 50%, #8969ff 100%);
+        background-attachment: fixed;
+        background-size: 300% 300%;
+        animation: gradient-animation 20s ease infinite;
+      }
+      
+      html[data-theme='liquid-glass'].light body, 
+      html[data-theme='liquid-glass'].dark body {
+        background: linear-gradient(-45deg, var(--theme-darkest), var(--theme-olive), var(--theme-mint), var(--theme-lime));
+        background-attachment: fixed;
+        background-size: 400% 400%;
+        animation: gradient-animation 15s ease infinite;
+      }
+
+      html[data-theme='glass-ui'].dark,
+      html[data-theme='liquid-glass'].dark {
+        color: #EAE8FF;
+      }
+       html[data-theme='glass-ui'].light,
+       html[data-theme='liquid-glass'].light {
+        color: #101222;
+      }
+
+      @keyframes gradient-animation {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+      }
+
+      .glass-card {
+        background: rgba(255, 255, 255, 0.35) !important;
+        backdrop-filter: blur(30px) saturate(180%) !important;
+        -webkit-backdrop-filter: blur(30px) saturate(180%) !important;
+        border: 1px solid rgba(255, 255, 255, 0.6) !important;
+        box-shadow: 0 10px 35px 0 rgba(31, 38, 135, 0.2) !important;
+      }
+      
+      .dark .glass-card {
+        background: rgba(20, 22, 40, 0.6) !important;
+        backdrop-filter: blur(30px) saturate(180%) !important;
+        -webkit-backdrop-filter: blur(30px) saturate(180%) !important;
+        border: 1px solid rgba(255, 255, 255, 0.18) !important;
+        box-shadow: 0 10px 35px 0 rgba(0, 0, 0, 0.35) !important;
+      }
+      
+      @keyframes liquid-1 {
+        0%, 100% { transform: translate(0, 0) scale(1); }
+        25% { transform: translate(10vw, 20vh) scale(1.2); }
+        50% { transform: translate(-20vw, -15vh) scale(0.8); }
+        75% { transform: translate(15vw, -25vh) scale(1.1); }
+      }
+      @keyframes liquid-2 {
+        0%, 100% { transform: translate(0, 0) scale(1.1); }
+        25% { transform: translate(-25vw, 10vh) scale(0.9); }
+        50% { transform: translate(10vw, -10vh) scale(1.3); }
+        75% { transform: translate(-15vw, 20vh) scale(1); }
+      }
+      @keyframes liquid-3 {
+        0%, 100% { transform: translate(0, 0) scale(0.9); }
+        25% { transform: translate(20vw, -15vh) scale(1.2); }
+        50% { transform: translate(-10vw, 20vh) scale(1); }
+        75% { transform: translate(-20vw, -20vh) scale(1.1); }
+      }
+
+      .animate-liquid-1 { animation: liquid-1 30s ease-in-out infinite; }
+      .animate-liquid-2 { animation: liquid-2 35s ease-in-out infinite alternate; }
+      .animate-liquid-3 { animation: liquid-3 40s ease-in-out infinite; }
+
+      body {
+        font-family: var(--font-family);
+        transition: background-color 0.3s, color 0.3s;
+      }
+      
+      .text-bolder p, .text-bolder span, .text-bolder li, .text-bolder button, .text-bolder div:not(:has(> h1, > h2, >h3, >h4)) {
+        font-weight: 500 !important;
+      }
+      .text-bolder h1, .text-bolder h2, .text-bolder h3, .text-bolder h4 {
+        font-weight: 800 !important;
+      }
+      .text-bolder svg {
+        font-weight: normal !important;
+      }
+      .text-italic p, .text-italic span, .text-italic li, .text-italic button, .text-italic div:not(:has(> h1, > h2, >h3, >h4)) {
+        font-style: italic !important;
+      }
+      .text-italic h1, .text-italic h2, .text-italic h3, .text-italic h4, .text-italic svg, .text-italic [class*="font-mono"] {
+        font-style: normal !important;
+      }
+    </style>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
