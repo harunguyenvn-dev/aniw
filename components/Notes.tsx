@@ -1,7 +1,6 @@
 
 import React from 'react';
 import { Settings } from '../types';
-import { TrashIcon } from './icons';
 
 interface NotesProps {
     isFullScreen?: boolean;
