@@ -1,24 +1,29 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Settings } from '../types';
-import { DownloadIcon, ChevronUpIcon, ChevronDownIcon } from './icons';
+import { DownloadIcon, ChevronUpIcon, ChevronDownIcon, HeartIcon } from './icons';
 
 interface MusicPageProps {
     settings: Settings;
+    likedImages: string[];
+    onToggleLike: (url: string) => void;
 }
 
 interface WaifuImage {
     url: string;
 }
 
-const MusicPage: React.FC<MusicPageProps> = ({ settings }) => {
+const MusicPage: React.FC<MusicPageProps> = ({ settings, likedImages, onToggleLike }) => {
     const [images, setImages] = useState<WaifuImage[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [activeIndex, setActiveIndex] = useState(0);
     const [animationClass, setAnimationClass] = useState('animate-fade-in');
+    
+    const loadingRef = useRef(loading);
+    loadingRef.current = loading;
 
     const fetchWaifus = useCallback(async (isInitial = false) => {
-        if (!isInitial && loading) return;
+        if (!isInitial && loadingRef.current) return;
         setLoading(true);
         setError(null);
         try {
@@ -36,11 +41,11 @@ const MusicPage: React.FC<MusicPageProps> = ({ settings }) => {
         } finally {
             setLoading(false);
         }
-    }, [loading]);
+    }, []);
 
     useEffect(() => {
         fetchWaifus(true);
-    }, []);
+    }, [fetchWaifus]);
 
     useEffect(() => {
         if (!loading && images.length > 0 && activeIndex >= images.length - 5) {
@@ -64,20 +69,21 @@ const MusicPage: React.FC<MusicPageProps> = ({ settings }) => {
         }
     };
 
-    const handleDownload = (url: string, e: React.MouseEvent) => {
+    const handleDownload = async (url: string, e: React.MouseEvent) => {
         e.stopPropagation();
         try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('Network response was not ok.');
+            const blob = await response.blob();
+            const objectUrl = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
-            link.href = url;
-            
+            link.href = objectUrl;
             const fileName = url.split('/').pop()?.split('?')[0] || 'waifu.jpg';
-            link.setAttribute('download', fileName);
-            link.setAttribute('target', '_blank');
-            link.setAttribute('rel', 'noopener noreferrer');
-
+            link.download = fileName;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+            window.URL.revokeObjectURL(objectUrl);
         } catch (err) {
             console.error("Failed to download image:", err);
             window.open(url, '_blank');
@@ -85,11 +91,11 @@ const MusicPage: React.FC<MusicPageProps> = ({ settings }) => {
     };
 
     const currentImage = images[activeIndex];
-    const isGlass = ['glass-ui', 'liquid-glass'].includes(settings.theme);
+    const isLiked = currentImage && likedImages.includes(currentImage.url);
 
     if (loading && images.length === 0) {
         return (
-            <div className="h-screen w-screen flex justify-center items-center">
+            <div className="h-screen w-screen flex justify-center items-center bg-theme-darkest">
                 <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-theme-lime"></div>
             </div>
         );
@@ -97,7 +103,7 @@ const MusicPage: React.FC<MusicPageProps> = ({ settings }) => {
     
     if (error) {
         return (
-            <div className="h-screen w-screen flex justify-center items-center text-center px-4">
+            <div className="h-screen w-screen flex justify-center items-center text-center px-4 bg-theme-darkest">
                 <div className="bg-red-900/50 border border-red-500 p-8 rounded-lg">
                     <h2 className="text-xl font-bold text-red-400 mb-4">Đã xảy ra lỗi</h2>
                     <p className="text-slate-300">{error}</p>
@@ -106,17 +112,8 @@ const MusicPage: React.FC<MusicPageProps> = ({ settings }) => {
         );
     }
 
-    const buttonClasses = isGlass 
-        ? 'bg-black/20 backdrop-blur-lg border border-white/10 text-white hover:bg-white/20' 
-        : 'bg-theme-mint/20 dark:bg-theme-darkest/40 border border-theme-olive/20 text-theme-darkest dark:text-theme-lightest hover:bg-theme-lime/30';
-        
-    const cardClasses = isGlass 
-        ? 'bg-black/20 backdrop-blur-md border border-white/10'
-        : 'bg-theme-lightest/10 dark:bg-theme-darkest/20 border border-theme-mint/20 dark:border-theme-olive/20';
-
-
     return (
-        <main className="h-screen w-screen relative overflow-hidden bg-theme-darkest text-theme-lightest">
+        <main className="h-screen w-screen relative overflow-hidden bg-theme-darkest text-white">
             {/* Blurred Background */}
             {currentImage && (
                 <div className="absolute inset-0 w-full h-full transition-all duration-500 ease-in-out">
@@ -129,23 +126,31 @@ const MusicPage: React.FC<MusicPageProps> = ({ settings }) => {
             <div className="relative w-full h-full flex items-center justify-center">
                 {/* Counter on the left */}
                 <div className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 flex flex-col items-center space-y-4 font-mono z-10">
-                    <div className="text-5xl md:text-7xl font-bold text-theme-lightest/20 transition-opacity duration-300" style={{ textShadow: '0 0 10px rgba(255,255,255,0.3)' }}>
+                    <div className="text-5xl md:text-7xl font-bold opacity-20 transition-opacity duration-300" style={{ textShadow: '0 0 10px rgba(255,255,255,0.3)' }}>
                         {activeIndex > 0 ? String(activeIndex).padStart(2, '0') : ''}
                     </div>
-                    <div className="text-7xl md:text-9xl font-extrabold text-transparent bg-clip-text bg-gradient-to-b from-theme-lightest/90 to-theme-lightest/40 transition-all duration-300" style={{ textShadow: '0 0 20px rgba(255,255,255,0.5)' }}>
+                    <div className="text-7xl md:text-9xl font-extrabold text-transparent bg-clip-text bg-gradient-to-b from-white/90 to-white/40 transition-all duration-300" style={{ textShadow: '0 0 20px rgba(255,255,255,0.5)' }}>
                         {String(activeIndex + 1).padStart(2, '0')}
                     </div>
-                     <div className="text-5xl md:text-7xl font-bold text-theme-lightest/20 transition-opacity duration-300" style={{ textShadow: '0 0 10px rgba(255,255,255,0.3)' }}>
+                     <div className="text-5xl md:text-7xl font-bold opacity-20 transition-opacity duration-300" style={{ textShadow: '0 0 10px rgba(255,255,255,0.3)' }}>
                         {activeIndex < images.length - 1 ? String(activeIndex + 2).padStart(2, '0') : ''}
                     </div>
                 </div>
 
                 {/* Image Viewer */}
                 <div className="relative w-full md:w-auto h-full md:h-[calc(100vh-4rem)] md:max-w-4xl flex items-center justify-center px-4 md:px-0">
-                     <div className={`relative w-auto h-full max-h-full aspect-[9/16] shadow-2xl shadow-black/50 rounded-3xl overflow-hidden p-2 ${cardClasses}`}>
+                     <div className="relative w-auto h-full max-h-full aspect-[9/16] shadow-2xl shadow-black/50 rounded-3xl overflow-hidden bg-black/20 backdrop-blur-md border border-white/10 p-2">
                         {currentImage && (
-                            <div key={activeIndex} className={`w-full h-full ${animationClass}`}>
+                            <div key={activeIndex} className={`w-full h-full ${animationClass} relative group`}>
                                 <img src={currentImage.url} className="w-full h-full object-cover rounded-2xl" alt={`Waifu ${activeIndex + 1}`} />
+                                
+                                {/* Heart Button */}
+                                <button 
+                                    onClick={() => onToggleLike(currentImage.url)}
+                                    className="absolute bottom-4 right-4 p-3 rounded-full bg-black/40 backdrop-blur-sm hover:bg-black/60 transition-all hover:scale-110"
+                                >
+                                    <HeartIcon className={`w-8 h-8 transition-colors ${isLiked ? 'text-red-500 fill-current' : 'text-white'}`} />
+                                </button>
                             </div>
                         )}
                     </div>
@@ -153,16 +158,16 @@ const MusicPage: React.FC<MusicPageProps> = ({ settings }) => {
                 
                 {/* Navigation on the right */}
                 <div className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 flex flex-col items-center space-y-4 z-10">
-                    <button onClick={handlePrev} disabled={activeIndex === 0} className={`p-3 rounded-full disabled:opacity-30 disabled:cursor-not-allowed transition-all hover:scale-110 ${buttonClasses}`}>
+                    <button onClick={handlePrev} disabled={activeIndex === 0} className="p-3 rounded-full bg-black/20 backdrop-blur-lg border border-white/10 text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all hover:bg-white/20 hover:scale-110">
                         <ChevronUpIcon className="w-6 h-6"/>
                     </button>
-                    <button onClick={handleNext} disabled={loading && activeIndex === images.length -1} className={`p-3 rounded-full disabled:opacity-30 disabled:cursor-not-allowed transition-all hover:scale-110 ${buttonClasses}`}>
+                    <button onClick={handleNext} disabled={loading && activeIndex === images.length -1} className="p-3 rounded-full bg-black/20 backdrop-blur-lg border border-white/10 text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all hover:bg-white/20 hover:scale-110">
                         <ChevronDownIcon className="w-6 h-6"/>
                     </button>
                     {currentImage && (
                         <button 
                             onClick={(e) => handleDownload(currentImage.url, e)}
-                            className={`p-3 rounded-full transition-all hover:scale-110 mt-4 ${buttonClasses}`}
+                            className="p-3 rounded-full bg-black/20 backdrop-blur-lg border border-white/10 text-white transition-all hover:bg-white/20 hover:scale-110 mt-4"
                             aria-label="Download image"
                         >
                             <DownloadIcon className="w-6 h-6" />
