@@ -121,10 +121,28 @@ const App: React.FC = () => {
     });
 
     useEffect(() => {
-        const hasVisited = localStorage.getItem('hasVisitedBefore');
-        if (!hasVisited) {
-            setIsDonateModalOpen(true);
-            localStorage.setItem('hasVisitedBefore', 'true');
+        const firstVisitKey = 'firstVisitTimestamp';
+        const hasShownDonateKey = 'hasShownDonateModal';
+        
+        const firstVisit = localStorage.getItem(firstVisitKey);
+        
+        if (!firstVisit) {
+            // First time user, save timestamp
+            localStorage.setItem(firstVisitKey, Date.now().toString());
+        } else {
+            // Returning user
+            const hasShown = localStorage.getItem(hasShownDonateKey);
+            
+            if (!hasShown) {
+                const now = Date.now();
+                const firstVisitTime = parseInt(firstVisit, 10);
+                const oneDay = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+                
+                if (now - firstVisitTime > oneDay) {
+                    setIsDonateModalOpen(true);
+                    localStorage.setItem(hasShownDonateKey, 'true');
+                }
+            }
         }
     }, []);
 
