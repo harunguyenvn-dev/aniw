@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { CloseIcon, ClipboardIcon, ClipboardCheckIcon } from './icons';
 import { Settings } from '../types';
@@ -57,10 +58,10 @@ const DonateModal: React.FC<DonateModalProps> = ({ isOpen, onClose, settings }) 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex justify-center items-center z-50 p-4 transition-opacity duration-300" onClick={onClose}>
       <div 
-        className={`rounded-2xl shadow-2xl w-full max-w-2xl relative animate-fade-in-down ${modalClasses}`} 
+        className={`rounded-2xl shadow-2xl w-full max-w-2xl relative animate-fade-in-down ${modalClasses} max-h-[90vh] overflow-y-auto`} 
         onClick={(e) => e.stopPropagation()}
       >
-        <button onClick={onClose} className={`absolute top-4 right-4 transition-colors ${closeIconColor}`}>
+        <button onClick={onClose} className={`absolute top-4 right-4 transition-colors z-50 ${closeIconColor}`}>
           <CloseIcon className="w-7 h-7" />
         </button>
 
@@ -72,7 +73,7 @@ const DonateModal: React.FC<DonateModalProps> = ({ isOpen, onClose, settings }) 
             <div className={`p-4 rounded-lg flex flex-col items-center justify-center space-y-2 flex-shrink-0 ${innerCardClasses}`}>
               <div className={qrContainerBg}>
                   <div 
-                      className="w-36 h-36" 
+                      className="w-28 h-28 md:w-36 md:h-36" 
                       style={{
                           backgroundColor: qrCodeColor,
                           maskImage: 'url(https://raw.githubusercontent.com/harunguyenvn-dev/data/refs/heads/main/img/qrcode.png)',
