@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { HomeIcon, SearchIcon, SettingsIcon, BookOpenIcon, TrophyIcon, CalendarDaysIcon, WaifuIcon, QRCodeIcon } from './icons';
-import { Settings } from '../types';
-import { View } from '../App';
+
+import React, { useState, useEffect, useRef } from 'react';
+import { HomeIcon, SearchIcon, SettingsIcon, BookOpenIcon, TrophyIcon, CalendarDaysIcon, WaifuIcon, QRCodeIcon, HeartIcon } from './icons';
+import { Settings, View } from '../types';
 
 interface HeaderProps {
     onDonateClick: () => void;
@@ -12,13 +12,37 @@ interface HeaderProps {
     onScheduleClick: () => void;
     onMusicClick: () => void;
     onSettingsClick: () => void;
+    onLikedImagesClick: () => void;
     settings: Settings;
     view: View;
 }
 
-const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchClick, onGlossaryClick, onRankingClick, onScheduleClick, onMusicClick, onSettingsClick, settings, view }) => {
+const Tooltip: React.FC<{ text: string; position: 'top' | 'bottom' | 'left' | 'right' }> = ({ text, position }) => {
+    let tooltipClasses = "absolute whitespace-nowrap bg-theme-darkest text-theme-lightest text-xs font-semibold px-2 py-1 rounded-md transition-all duration-200 opacity-0 group-hover:opacity-100 pointer-events-none z-10";
+
+    switch(position) {
+        case 'top':
+            tooltipClasses += " bottom-full mb-2 left-1/2 -translate-x-1/2";
+            break;
+        case 'bottom':
+            tooltipClasses += " top-full mt-2 left-1/2 -translate-x-1/2";
+            break;
+        case 'left':
+            tooltipClasses += " right-full mr-3 top-1/2 -translate-y-1/2";
+            break;
+        case 'right':
+            tooltipClasses += " left-full ml-3 top-1/2 -translate-y-1/2";
+            break;
+    }
+
+    return <span className={tooltipClasses}>{text}</span>;
+};
+
+const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchClick, onGlossaryClick, onRankingClick, onScheduleClick, onMusicClick, onSettingsClick, onLikedImagesClick, settings, view }) => {
     const [time, setTime] = useState('');
     const [avatarError, setAvatarError] = useState(false);
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const menuRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const updateClock = () => {
@@ -33,6 +57,16 @@ const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchCli
     useEffect(() => {
         setAvatarError(false); // Reset error state when avatarUrl changes
     }, [settings.avatarUrl]);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+                setIsMenuOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     const positionStyles = {
         top: {
@@ -88,29 +122,11 @@ const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchCli
     const donateButtonClass = ['glass-ui', 'liquid-glass'].includes(settings.theme)
         ? `p-2 md:p-2.5 rounded-full transition-all duration-300 bg-theme-lime text-white shadow-[0_0_15px_rgba(255,112,140,0.7)] hover:shadow-[0_0_25px_rgba(255,112,140,0.9)]`
         : `p-2 md:p-2.5 rounded-full transition-all duration-300 bg-theme-lime text-theme-darkest shadow-[0_0_15px_rgba(195,233,86,0.7)] hover:shadow-[0_0_25px_rgba(195,233,86,0.9)]`;
-
-    const Tooltip: React.FC<{ text: string }> = ({ text }) => {
-        const position = settings.headerPosition;
-        let tooltipClasses = "absolute whitespace-nowrap bg-theme-darkest text-theme-lightest text-xs font-semibold px-2 py-1 rounded-md transition-all duration-200 opacity-0 group-hover:opacity-100 pointer-events-none z-10";
-
-        switch(position) {
-            case 'top':
-                tooltipClasses += " bottom-full mb-2 left-1/2 -translate-x-1/2";
-                break;
-            case 'bottom':
-                tooltipClasses += " top-full mt-2 left-1/2 -translate-x-1/2";
-                break;
-            case 'left':
-                tooltipClasses += " left-full ml-3 top-1/2 -translate-y-1/2";
-                break;
-            case 'right':
-                tooltipClasses += " right-full mr-3 top-1/2 -translate-y-1/2";
-                break;
-        }
-
-        return <span className={tooltipClasses}>{text}</span>;
-    };
-
+    
+    const tooltipPosition = settings.headerPosition === 'bottom' ? 'top' : 
+                          settings.headerPosition === 'left' ? 'right' :
+                          settings.headerPosition === 'right' ? 'left' :
+                          'bottom';
 
     return (
         <header className={`z-50 ${styles.header}`}>
@@ -120,43 +136,43 @@ const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchCli
                         <button onClick={onHomeClick} className={`${getButtonClass('home')} ${animationClass}`} aria-label="Trang chủ">
                             <HomeIcon className="w-5 h-5 md:w-6 md:h-6" />
                         </button>
-                        <Tooltip text="Trang chủ" />
+                        <Tooltip text="Trang chủ" position={tooltipPosition} />
                     </div>
                     <div className="relative group">
                         <button onClick={onSearchClick} className={`p-2 md:p-2.5 rounded-full transition-all duration-300 text-theme-darkest dark:text-theme-lightest hover:bg-theme-lime/50 ${animationClass}`} aria-label="Tìm kiếm">
                             <SearchIcon className="w-5 h-5 md:w-6 md:h-6" />
                         </button>
-                        <Tooltip text="Tìm kiếm" />
+                        <Tooltip text="Tìm kiếm" position={tooltipPosition} />
                     </div>
                     <div className="relative group">
                         <button onClick={onScheduleClick} className={`${getButtonClass('schedule')} ${animationClass}`} aria-label="Lịch phát sóng">
                             <CalendarDaysIcon className="w-5 h-5 md:w-6 md:h-6" />
                         </button>
-                        <Tooltip text="Lịch phát sóng" />
+                        <Tooltip text="Lịch phát sóng" position={tooltipPosition} />
                     </div>
                     <div className="relative group">
                         <button onClick={onGlossaryClick} className={`${getButtonClass('glossary')} ${animationClass}`} aria-label="Thuật ngữ">
                             <BookOpenIcon className="w-5 h-5 md:w-6 md:h-6" />
                         </button>
-                        <Tooltip text="Thuật ngữ" />
+                        <Tooltip text="Thuật ngữ" position={tooltipPosition} />
                     </div>
                     <div className="relative group">
                         <button onClick={onRankingClick} className={`${getButtonClass('ranking')} ${animationClass}`} aria-label="Xếp hạng">
                             <TrophyIcon className="w-5 h-5 md:w-6 md:h-6" />
                         </button>
-                        <Tooltip text="Xếp hạng" />
+                        <Tooltip text="Xếp hạng" position={tooltipPosition} />
                     </div>
                     <div className="relative group">
                         <button onClick={onMusicClick} className={`${getButtonClass('music')} ${animationClass}`} aria-label="Waifu">
                             <WaifuIcon className="w-5 h-5 md:w-6 md:h-6" />
                         </button>
-                        <Tooltip text="Waifu" />
+                        <Tooltip text="Waifu" position={tooltipPosition} />
                     </div>
                     <div className="relative group">
                         <button onClick={onDonateClick} className={`${donateButtonClass} ${animationClass}`} aria-label="Ủng hộ">
                             <QRCodeIcon className="w-5 h-5 md:w-6 md:h-6" />
                         </button>
-                        <Tooltip text="Ủng hộ" />
+                        <Tooltip text="Ủng hộ" position={tooltipPosition} />
                     </div>
                 </div>
 
@@ -166,15 +182,36 @@ const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchCli
                          <button onClick={onSettingsClick} className={`p-2 rounded-full transition-all duration-300 ${['glass-ui', 'liquid-glass'].includes(settings.theme) ? 'text-theme-darkest dark:text-theme-lightest hover:bg-white/20' : 'text-theme-darkest dark:text-theme-lightest hover:bg-theme-lime/50'} ${animationClass}`} aria-label="Cài đặt">
                             <SettingsIcon className="w-5 h-5 md:w-6 md:h-6"/>
                         </button>
-                        <Tooltip text="Cài đặt" />
+                        <Tooltip text="Cài đặt" position={tooltipPosition} />
                     </div>
-                    <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-slate-300 dark:bg-gray-700 overflow-hidden ring-2 ring-offset-2 ring-offset-transparent ring-theme-lime/70 transition-transform duration-300 ${avatarAnimationClass}`}>
-                         <img
-                            src={avatarError ? "https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/icon/ic_avatar5.jpg" : settings.avatarUrl}
-                            alt="User Avatar"
-                            className="w-full h-full object-cover"
-                            onError={() => setAvatarError(true)}
-                        />
+                    <div className="relative" ref={menuRef}>
+                        <button 
+                            onClick={() => setIsMenuOpen(!isMenuOpen)}
+                            className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-slate-300 dark:bg-gray-700 overflow-hidden ring-2 ring-offset-2 ring-offset-transparent ring-theme-lime/70 transition-transform duration-300 ${avatarAnimationClass} cursor-pointer`}
+                        >
+                             <img
+                                src={avatarError ? "https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/icon/ic_avatar5.jpg" : settings.avatarUrl}
+                                alt="User Avatar"
+                                className="w-full h-full object-cover"
+                                onError={() => setAvatarError(true)}
+                            />
+                        </button>
+                         {isMenuOpen && (
+                            <div className={`absolute right-0 mt-2 w-48 rounded-xl shadow-lg overflow-hidden z-50 ${['glass-ui', 'liquid-glass'].includes(settings.theme) ? 'glass-card' : 'bg-theme-lightest dark:bg-theme-darkest border border-slate-200 dark:border-slate-700'}`}>
+                                <div className="py-1">
+                                    <button
+                                        onClick={() => {
+                                            onLikedImagesClick();
+                                            setIsMenuOpen(false);
+                                        }}
+                                        className="flex items-center gap-3 w-full px-4 py-3 text-sm text-left text-slate-700 dark:text-slate-200 hover:bg-theme-mint/30 dark:hover:bg-theme-olive/30 transition-colors"
+                                    >
+                                        <HeartIcon className="w-5 h-5 text-theme-olive dark:text-theme-lime" />
+                                        Ảnh đã thích
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </nav>
