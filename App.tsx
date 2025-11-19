@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Header from './components/Header';
 import DonateModal from './components/SubscriptionModal';
@@ -9,13 +10,10 @@ import Glossary from './components/Glossary';
 import Ranking from './components/Ranking';
 import AiringSchedule from './components/AiringSchedule';
 import MusicPage from './components/MusicPage';
-import { Anime, Episode, Settings } from './types';
+import LikedImagesPage from './components/LikedImagesPage';
+import { Anime, Episode, Settings, View } from './types';
 
-// @ts-ignore
-const Papa = window.Papa;
 const ANIME_CSV_URL = 'https://raw.githubusercontent.com/harunguyenvn-dev/data/refs/heads/main/anime.csv';
-
-export type View = 'home' | 'glossary' | 'ranking' | 'schedule' | 'music';
 
 const LiquidBackground: React.FC = () => (
     <div className="fixed inset-0 -z-10 overflow-hidden bg-transparent">
@@ -39,6 +37,31 @@ const App: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [view, setView] = useState<View>('home');
     const audioRef = useRef<HTMLAudioElement | null>(null);
+    
+    // Liked Images State
+    const [likedImages, setLikedImages] = useState<string[]>(() => {
+        try {
+            const saved = localStorage.getItem('likedImages');
+            return saved ? JSON.parse(saved) : [];
+        } catch {
+            return [];
+        }
+    });
+
+    useEffect(() => {
+        localStorage.setItem('likedImages', JSON.stringify(likedImages));
+    }, [likedImages]);
+
+    const toggleLikeImage = (url: string) => {
+        setLikedImages(prev => {
+            if (prev.includes(url)) {
+                return prev.filter(img => img !== url);
+            } else {
+                return [...prev, url];
+            }
+        });
+    };
+
     const [settings, setSettings] = useState<Settings>(() => {
         try {
             const savedSettings = localStorage.getItem('animeAppSettings');
@@ -60,7 +83,6 @@ const App: React.FC = () => {
                 avatarUrl: parsed.avatarUrl || 'https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/icon/ic_avatar5.jpg',
                 enableHoverAnimation: parsed.enableHoverAnimation || false,
                 customAnimeDataUrl: parsed.customAnimeDataUrl || '',
-                enableBackgroundMusic: parsed.enableBackgroundMusic !== undefined ? parsed.enableBackgroundMusic : true,
                 customThemeColors: parsed.customThemeColors || {
                     lightest: '#ECFDFF',
                     mint: '#41F0D1',
@@ -87,7 +109,6 @@ const App: React.FC = () => {
                 avatarUrl: 'https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/icon/ic_avatar5.jpg',
                 enableHoverAnimation: false,
                 customAnimeDataUrl: '',
-                enableBackgroundMusic: true,
                 customThemeColors: {
                     lightest: '#ECFDFF',
                     mint: '#41F0D1',
@@ -171,25 +192,18 @@ const App: React.FC = () => {
                 rootDiv.classList.remove('text-italic');
             }
         }
-
-        if (audioRef.current) {
-            if (!settings.enableBackgroundMusic) {
-                audioRef.current.pause();
-            } else {
-                const musicViews: View[] = ['ranking', 'schedule', 'music'];
-                if (musicViews.includes(view) && audioRef.current.paused && audioRef.current.src) {
-                    audioRef.current.play().catch(e => console.error("Audio playback failed:", e));
-                }
-            }
-        }
-
         localStorage.setItem('animeAppSettings', JSON.stringify(settings));
-    }, [settings, view]);
+    }, [settings]);
 
     useEffect(() => {
         const fetchAndParseData = (url: string): Promise<Anime[]> => {
             return new Promise(async (resolve, reject) => {
                 try {
+                    // @ts-ignore
+                    const Papa = window.Papa;
+                    if (!Papa) {
+                        throw new Error("CSV parsing library (PapaParse) is not loaded.");
+                    }
                     const response = await fetch(url);
                     if (!response.ok) {
                         throw new Error(`HTTP error! status: ${response.status}`);
@@ -298,18 +312,12 @@ const App: React.FC = () => {
         setView(newView);
 
         if (audioRef.current) {
-            const shouldPlayMusic = settings.enableBackgroundMusic;
-            
-            if (newView === 'ranking' && shouldPlayMusic) {
+            if (newView === 'ranking') {
                 audioRef.current.src = 'https://github.com/harunguyenvn-dev/data/raw/refs/heads/main/test/examp.mp3';
                 audioRef.current.loop = true;
                 audioRef.current.play().catch(e => console.error("Audio playback failed:", e));
-            } else if (newView === 'schedule' && shouldPlayMusic) {
+            } else if (newView === 'schedule') {
                 audioRef.current.src = 'https://github.com/harunguyenvn-dev/data/raw/refs/heads/main/test/c.m4a';
-                audioRef.current.loop = true;
-                audioRef.current.play().catch(e => console.error("Audio playback failed:", e));
-            } else if (newView === 'music' && shouldPlayMusic) {
-                audioRef.current.src = 'https://github.com/harunguyenvn-dev/data/raw/refs/heads/main/test/2_23%20AM%20%E2%A7%B8%20%E3%81%97%E3%82%83%E3%82%8D%E3%81%86%20%5Bslt_Bav8nsQ%5D.m4a';
                 audioRef.current.loop = true;
                 audioRef.current.play().catch(e => console.error("Audio playback failed:", e));
             }
@@ -354,7 +362,10 @@ const App: React.FC = () => {
             return <AiringSchedule settings={settings} containerClassName={getContentPadding('main')} />;
         }
         if (view === 'music') {
-            return <MusicPage settings={settings} />;
+            return <MusicPage settings={settings} likedImages={likedImages} onToggleLike={toggleLikeImage} />;
+        }
+        if (view === 'liked-images') {
+            return <LikedImagesPage settings={settings} likedImages={likedImages} onRemoveImage={toggleLikeImage} />;
         }
 
         if (loading) {
@@ -414,6 +425,7 @@ const App: React.FC = () => {
                 onScheduleClick={() => handleViewChange('schedule')}
                 onMusicClick={() => handleViewChange('music')}
                 onSettingsClick={() => setIsSettingsOpen(true)}
+                onLikedImagesClick={() => handleViewChange('liked-images')}
                 settings={settings}
                 view={view}
             />
