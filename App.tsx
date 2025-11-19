@@ -320,8 +320,15 @@ const App: React.FC = () => {
                 audioRef.current.src = 'https://github.com/harunguyenvn-dev/data/raw/refs/heads/main/test/c.m4a';
                 audioRef.current.loop = true;
                 audioRef.current.play().catch(e => console.error("Audio playback failed:", e));
-            }
-            else {
+            } else if (newView === 'glossary') {
+                 audioRef.current.src = 'https://github.com/harunguyenvn-dev/data/raw/refs/heads/main/test/Dreaming%20%5BDFVuYoDVS_g%5D.m4a';
+                 audioRef.current.loop = true;
+                 audioRef.current.play().catch(e => console.error("Audio playback failed:", e));
+            } else if (newView === 'music') {
+                 audioRef.current.src = 'https://github.com/harunguyenvn-dev/data/raw/refs/heads/main/test/lofi%20songs%20for%20slow%20days%20%5BAzV77KFsLn4%5D.m4a';
+                 audioRef.current.loop = true;
+                 audioRef.current.play().catch(e => console.error("Audio playback failed:", e));
+            } else {
                 audioRef.current.pause();
             }
         }
