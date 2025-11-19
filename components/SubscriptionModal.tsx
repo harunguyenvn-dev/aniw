@@ -1,477 +1,146 @@
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import Header from './components/Header';
-import DonateModal from './components/SubscriptionModal';
-import SearchModal from './components/SearchModal';
-import AnimePlayer from './components/AnimePlayer';
-import RecommendedAnime from './components/RecommendedAnime';
-import SettingsModal from './components/SettingsModal';
-import Glossary from './components/Glossary';
-import Ranking from './components/Ranking';
-import AiringSchedule from './components/AiringSchedule';
-import MusicPage from './components/MusicPage';
-import LikedImagesPage from './components/LikedImagesPage';
-import { Anime, Episode, Settings, View } from './types';
+import React, { useState } from 'react';
+import { CloseIcon, ClipboardIcon, ClipboardCheckIcon } from './icons';
+import { Settings } from '../types';
 
-const ANIME_CSV_URL = 'https://raw.githubusercontent.com/harunguyenvn-dev/data/refs/heads/main/anime.csv';
-
-const LiquidBackground: React.FC = () => (
-    <div className="fixed inset-0 -z-10 overflow-hidden bg-transparent">
-        <div className="absolute top-0 left-0 w-full h-full">
-            <div className="absolute top-1/4 left-1/4 w-[40vmin] h-[40vmin] bg-theme-mint/30 rounded-full filter blur-3xl animate-liquid-1 opacity-70"></div>
-            <div className="absolute bottom-1/4 right-1/4 w-[35vmin] h-[35vmin] bg-theme-lime/30 rounded-full filter blur-3xl animate-liquid-2 opacity-70"></div>
-            <div className="absolute bottom-1/2 left-1/3 w-[30vmin] h-[30vmin] bg-theme-olive/30 rounded-full filter blur-3xl animate-liquid-3 opacity-70"></div>
-        </div>
-    </div>
-);
-
-const App: React.FC = () => {
-    const [isDonateModalOpen, setIsDonateModalOpen] = useState(false);
-    const [isSearchOpen, setIsSearchOpen] = useState(false);
-    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-    
-    const [animeList, setAnimeList] = useState<Anime[]>([]);
-    const [recommendedAnime, setRecommendedAnime] = useState<Anime[]>([]);
-    const [selectedAnime, setSelectedAnime] = useState<Anime | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [view, setView] = useState<View>('home');
-    const audioRef = useRef<HTMLAudioElement | null>(null);
-    
-    // Liked Images State
-    const [likedImages, setLikedImages] = useState<string[]>(() => {
-        try {
-            const saved = localStorage.getItem('likedImages');
-            return saved ? JSON.parse(saved) : [];
-        } catch {
-            return [];
-        }
-    });
-
-    useEffect(() => {
-        localStorage.setItem('likedImages', JSON.stringify(likedImages));
-    }, [likedImages]);
-
-    const toggleLikeImage = (url: string) => {
-        setLikedImages(prev => {
-            if (prev.includes(url)) {
-                return prev.filter(img => img !== url);
-            } else {
-                return [...prev, url];
-            }
-        });
-    };
-
-    const [settings, setSettings] = useState<Settings>(() => {
-        try {
-            const savedSettings = localStorage.getItem('animeAppSettings');
-            const parsed = savedSettings ? JSON.parse(savedSettings) : {};
-            return {
-                colorMode: parsed.colorMode || 'light',
-                theme: parsed.theme || 'green-screen',
-                isTextBolder: parsed.isTextBolder || false,
-                isTextItalic: parsed.isTextItalic || false,
-                fontFamily: parsed.fontFamily || 'Inter, sans-serif',
-                disablePopupPlayer: parsed.disablePopupPlayer || false,
-                blockNewTabs: parsed.blockNewTabs !== undefined ? parsed.blockNewTabs : true,
-                showNotes: parsed.showNotes || false,
-                headerPosition: parsed.headerPosition || 'top',
-                resizablePanes: parsed.resizablePanes || false,
-                showCalendar: parsed.showCalendar || false,
-                showTodoList: parsed.showTodoList || false,
-                showStopwatch: parsed.showStopwatch || false,
-                avatarUrl: parsed.avatarUrl || 'https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/icon/ic_avatar5.jpg',
-                enableHoverAnimation: parsed.enableHoverAnimation || false,
-                customAnimeDataUrl: parsed.customAnimeDataUrl || '',
-                customThemeColors: parsed.customThemeColors || {
-                    lightest: '#ECFDFF',
-                    mint: '#41F0D1',
-                    lime: '#A8FFC8',
-                    olive: '#008B8B',
-                    darkest: '#012A29',
-                },
-            };
-        } catch (error) {
-            return {
-                colorMode: 'dark',
-                theme: 'green-screen',
-                isTextBolder: false,
-                isTextItalic: false,
-                fontFamily: 'Inter, sans-serif',
-                disablePopupPlayer: false,
-                blockNewTabs: true,
-                showNotes: false,
-                headerPosition: 'top',
-                resizablePanes: false,
-                showCalendar: false,
-                showTodoList: false,
-                showStopwatch: false,
-                avatarUrl: 'https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/icon/ic_avatar5.jpg',
-                enableHoverAnimation: false,
-                customAnimeDataUrl: '',
-                customThemeColors: {
-                    lightest: '#ECFDFF',
-                    mint: '#41F0D1',
-                    lime: '#A8FFC8',
-                    olive: '#008B8B',
-                    darkest: '#012A29',
-                },
-            };
-        }
-    });
-
-    useEffect(() => {
-        const firstVisitKey = 'firstVisitTimestamp';
-        const hasShownDonateKey = 'hasShownDonateModal';
-        
-        const firstVisit = localStorage.getItem(firstVisitKey);
-        
-        if (!firstVisit) {
-            // First time user, save timestamp
-            localStorage.setItem(firstVisitKey, Date.now().toString());
-        } else {
-            // Returning user
-            const hasShown = localStorage.getItem(hasShownDonateKey);
-            
-            if (!hasShown) {
-                const now = Date.now();
-                const firstVisitTime = parseInt(firstVisit, 10);
-                const oneDay = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
-                
-                if (now - firstVisitTime > oneDay) {
-                    setIsDonateModalOpen(true);
-                    localStorage.setItem(hasShownDonateKey, 'true');
-                }
-            }
-        }
-    }, []);
-
-    useEffect(() => {
-        // This effect runs only once on mount to create the audio object
-        audioRef.current = new Audio();
-        audioRef.current.volume = 0.5; // Set a reasonable volume
-        return () => {
-            // Cleanup on unmount
-            if (audioRef.current) {
-                audioRef.current.pause();
-                audioRef.current = null;
-            }
-        };
-    }, []);
-    
-    useEffect(() => {
-        const styleId = 'custom-theme-style';
-        let styleElement = document.getElementById(styleId);
-
-        if (settings.theme === 'custom' && settings.customThemeColors) {
-            if (!styleElement) {
-                styleElement = document.createElement('style');
-                styleElement.id = styleId;
-                document.head.appendChild(styleElement);
-            }
-            const { lightest, mint, lime, olive, darkest } = settings.customThemeColors;
-            styleElement.innerHTML = `
-                :root[data-theme='custom'] {
-                    --theme-lightest: ${lightest};
-                    --theme-mint: ${mint};
-                    --theme-lime: ${lime};
-                    --theme-olive: ${olive};
-                    --theme-darkest: ${darkest};
-                }
-            `;
-        } else {
-            if (styleElement) {
-                styleElement.innerHTML = '';
-            }
-        }
-    }, [settings.theme, settings.customThemeColors]);
-
-    useEffect(() => {
-        if (settings.colorMode === 'dark') {
-            document.documentElement.classList.add('dark');
-        } else {
-            document.documentElement.classList.remove('dark');
-        }
-
-        document.documentElement.setAttribute('data-theme', settings.theme);
-        document.documentElement.style.setProperty('--font-family', settings.fontFamily);
-
-
-        const rootDiv = document.getElementById('root');
-        if (rootDiv) {
-            if (settings.isTextBolder) {
-                rootDiv.classList.add('text-bolder');
-            } else {
-                rootDiv.classList.remove('text-bolder');
-            }
-            if (settings.isTextItalic) {
-                rootDiv.classList.add('text-italic');
-            } else {
-                rootDiv.classList.remove('text-italic');
-            }
-        }
-        localStorage.setItem('animeAppSettings', JSON.stringify(settings));
-    }, [settings]);
-
-    useEffect(() => {
-        const fetchAndParseData = (url: string): Promise<Anime[]> => {
-            return new Promise(async (resolve, reject) => {
-                try {
-                    // @ts-ignore
-                    const Papa = window.Papa;
-                    if (!Papa) {
-                        throw new Error("CSV parsing library (PapaParse) is not loaded.");
-                    }
-                    const response = await fetch(url);
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    const csvText = await response.text();
-    
-                    Papa.parse(csvText, {
-                        header: true,
-                        skipEmptyLines: true,
-                        complete: (results: { data: { name: string; episodes: string; url: string; link: string; }[] }) => {
-                            const groupedAnime: { [key: string]: Episode[] } = {};
-    
-                            results.data.forEach(row => {
-                                if (row.name && row.episodes) {
-                                    if (!groupedAnime[row.name]) {
-                                        groupedAnime[row.name] = [];
-                                    }
-                                    groupedAnime[row.name].push({
-                                        name: row.name,
-                                        episodeTitle: row.episodes,
-                                        url: row.url,
-                                        link: row.link,
-                                    });
-                                }
-                            });
-    
-                            const animeArray: Anime[] = Object.keys(groupedAnime).map(name => ({
-                                name: name,
-                                episodes: groupedAnime[name],
-                            }));
-                            resolve(animeArray);
-                        },
-                        error: (err: any) => {
-                            reject(new Error(`CSV parsing error: ${err.message}`));
-                        }
-                    });
-                } catch (e) {
-                    reject(e);
-                }
-            });
-        };
-
-        const loadData = async () => {
-            setLoading(true);
-            setError(null);
-            setSelectedAnime(null);
-            setView('home');
-
-            const processData = (data: Anime[]) => {
-                const getTier = (episodeCount: number) => {
-                    if (episodeCount > 100) return 4;
-                    if (episodeCount >= 24) return 3;
-                    if (episodeCount >= 12) return 2;
-                    return 1;
-                };
-
-                const sortedAnime = [...data].sort((a, b) => {
-                    const tierA = getTier(a.episodes.length);
-                    const tierB = getTier(b.episodes.length);
-                    if (tierA !== tierB) {
-                        return tierB - tierA;
-                    }
-                    return b.episodes.length - a.episodes.length;
-                });
-
-                setRecommendedAnime(sortedAnime);
-                setAnimeList(data);
-                setLoading(false);
-            };
-
-            const urlToTry = settings.customAnimeDataUrl || ANIME_CSV_URL;
-
-            try {
-                const data = await fetchAndParseData(urlToTry);
-                processData(data);
-            } catch (e: any) {
-                if (settings.customAnimeDataUrl) {
-                    setError(`Lỗi URL tùy chỉnh: ${e.message}. Đang thử nguồn mặc định.`);
-                    try {
-                        const data = await fetchAndParseData(ANIME_CSV_URL);
-                        processData(data);
-                        setError(null); 
-                    } catch (e2: any) {
-                        setError(`Cả URL tùy chỉnh và mặc định đều thất bại. Lỗi: ${e2.message}`);
-                        setLoading(false);
-                    }
-                } else {
-                    setError(`Không thể tải dữ liệu phim. Lỗi: ${e.message}`);
-                    setLoading(false);
-                }
-            }
-        };
-
-        loadData();
-    }, [settings.customAnimeDataUrl]);
-
-
-    const handleSelectAnime = (anime: Anime) => {
-        setSelectedAnime(anime);
-        setIsSearchOpen(false);
-        setView('home');
-    };
-    
-    const handleViewChange = (newView: View) => {
-        setSelectedAnime(null);
-        setView(newView);
-
-        if (audioRef.current) {
-            if (newView === 'ranking') {
-                audioRef.current.src = 'https://github.com/harunguyenvn-dev/data/raw/refs/heads/main/test/examp.mp3';
-                audioRef.current.loop = true;
-                audioRef.current.play().catch(e => console.error("Audio playback failed:", e));
-            } else if (newView === 'schedule') {
-                audioRef.current.src = 'https://github.com/harunguyenvn-dev/data/raw/refs/heads/main/test/c.m4a';
-                audioRef.current.loop = true;
-                audioRef.current.play().catch(e => console.error("Audio playback failed:", e));
-            } else if (newView === 'glossary') {
-                 audioRef.current.src = 'https://github.com/harunguyenvn-dev/data/raw/refs/heads/main/test/Dreaming%20%5BDFVuYoDVS_g%5D.m4a';
-                 audioRef.current.loop = true;
-                 audioRef.current.play().catch(e => console.error("Audio playback failed:", e));
-            } else if (newView === 'music') {
-                 audioRef.current.src = 'https://github.com/harunguyenvn-dev/data/raw/refs/heads/main/test/lofi%20songs%20for%20slow%20days%20%5BAzV77KFsLn4%5D.m4a';
-                 audioRef.current.loop = true;
-                 audioRef.current.play().catch(e => console.error("Audio playback failed:", e));
-            } else {
-                audioRef.current.pause();
-            }
-        }
-    };
-
-    const handleClosePlayer = () => {
-        setSelectedAnime(null);
-    };
-
-    const renderContent = () => {
-        const getContentPadding = (viewType: 'player' | 'main') => {
-            const padding = {
-                top: viewType === 'player' ? 'pt-24 px-4 pb-8' : 'pt-24 px-4 sm:px-8 pb-16',
-                bottom: viewType === 'player' ? 'pb-24 px-4 pt-8' : 'pb-24 px-4 sm:px-8 pt-16',
-                left: viewType === 'player' ? 'py-8 pl-16 md:pl-24 pr-4' : 'py-16 pl-16 md:pl-24 pr-4 sm:pr-8',
-                right: viewType === 'player' ? 'py-8 pr-16 md:pr-24 pl-4' : 'py-16 pr-16 md:pr-24 pl-4 sm:pl-8',
-            }
-            return padding[settings.headerPosition];
-        }
-
-        const getHomePadding = () => {
-            switch (settings.headerPosition) {
-                case 'top': return 'pt-24 p-4';
-                case 'bottom': return 'pb-24 p-4';
-                case 'left': return 'pl-16 md:pl-24 p-4';
-                case 'right': return 'pr-16 md:pr-24 p-4';
-                default: return 'p-4';
-            }
-        };
-        
-        if (view === 'glossary') {
-            return <Glossary containerClassName={getContentPadding('main')} settings={settings} />;
-        }
-        if (view === 'ranking') {
-            return <Ranking settings={settings} containerClassName={getContentPadding('main')} />;
-        }
-        if (view === 'schedule') {
-            return <AiringSchedule settings={settings} containerClassName={getContentPadding('main')} />;
-        }
-        if (view === 'music') {
-            return <MusicPage settings={settings} likedImages={likedImages} onToggleLike={toggleLikeImage} />;
-        }
-        if (view === 'liked-images') {
-            return <LikedImagesPage settings={settings} likedImages={likedImages} onRemoveImage={toggleLikeImage} />;
-        }
-
-        if (loading) {
-            return (
-                 <div className="flex justify-center items-center h-screen">
-                    <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-theme-lime"></div>
-                </div>
-            );
-        }
-        if (error) {
-            return (
-                <div className="flex justify-center items-center h-screen text-center px-4">
-                    <div className="bg-red-900/50 border border-red-500 p-8 rounded-lg">
-                        <h2 className="text-xl sm:text-2xl font-bold text-red-400 mb-4">Đã xảy ra lỗi</h2>
-                        <p className="text-slate-300 text-sm sm:text-base">{error}</p>
-                    </div>
-                </div>
-            );
-        }
-        if (selectedAnime) {
-            return <AnimePlayer 
-                        anime={selectedAnime} 
-                        settings={settings}
-                        onClose={handleClosePlayer}
-                        containerClassName={getContentPadding('player')}
-                    />;
-        }
-
-        if (view === 'home') {
-             return (
-                <main className={`h-screen w-screen ${getHomePadding()}`}>
-                     {recommendedAnime.length > 0 && (
-                        <RecommendedAnime 
-                            animeList={recommendedAnime} 
-                            onSelectAnime={handleSelectAnime} 
-                            settings={settings}
-                        />
-                    )}
-                </main>
-            );
-        }
-
-        return <main />;
-    }
-    
-    const appBg = ['glass-ui', 'liquid-glass'].includes(settings.theme) ? '' : 'bg-theme-lightest dark:bg-theme-darkest';
-
-    return (
-        <div className={`min-h-screen ${appBg} text-theme-darkest dark:text-theme-lightest`}>
-            {(settings.theme === 'liquid-glass' && view !== 'music') && <LiquidBackground />}
-            <Header 
-                onDonateClick={() => setIsDonateModalOpen(true)} 
-                onHomeClick={() => handleViewChange('home')} 
-                onSearchClick={() => setIsSearchOpen(true)}
-                onGlossaryClick={() => handleViewChange('glossary')}
-                onRankingClick={() => handleViewChange('ranking')}
-                onScheduleClick={() => handleViewChange('schedule')}
-                onMusicClick={() => handleViewChange('music')}
-                onSettingsClick={() => setIsSettingsOpen(true)}
-                onLikedImagesClick={() => handleViewChange('liked-images')}
-                settings={settings}
-                view={view}
-            />
-            {renderContent()}
-            
-            <DonateModal isOpen={isDonateModalOpen} onClose={() => setIsDonateModalOpen(false)} settings={settings} />
-            <SearchModal 
-                isOpen={isSearchOpen} 
-                onClose={() => setIsSearchOpen(false)} 
-                animeList={animeList} 
-                onSelectAnime={handleSelectAnime}
-                settings={settings}
-            />
-            <SettingsModal
-                isOpen={isSettingsOpen}
-                onClose={() => setIsSettingsOpen(false)}
-                settings={settings}
-                onSettingsChange={setSettings}
-            />
-        </div>
-    );
+interface DonateModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  settings: Settings;
 }
 
-export default App;
+const DonateModal: React.FC<DonateModalProps> = ({ isOpen, onClose, settings }) => {
+  if (!isOpen) return null;
+
+  const [copied, setCopied] = useState<string | null>(null);
+
+  const copyToClipboard = (text: string, field: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(field);
+      setTimeout(() => setCopied(null), 2000);
+    });
+  };
+
+  const isGlass = ['glass-ui', 'liquid-glass'].includes(settings.theme);
+
+  const modalClasses = isGlass
+    ? 'glass-card text-theme-darkest dark:text-theme-lightest'
+    : 'bg-theme-lightest dark:bg-theme-darkest text-theme-darkest dark:text-theme-lightest border border-theme-mint/50 dark:border-theme-olive/50';
+  
+  const innerCardClasses = isGlass
+    ? 'bg-white/20 dark:bg-black/20'
+    : 'bg-black/5 dark:bg-black/20';
+    
+  const buttonClasses = isGlass
+    ? 'bg-white/40 hover:bg-white/60 text-theme-darkest dark:text-theme-lightest'
+    : 'bg-theme-olive text-theme-lightest hover:bg-opacity-80';
+    
+  const titleColor = 'text-theme-darkest dark:text-theme-lightest';
+  const subtitleColor = 'text-theme-darkest/80 dark:text-theme-lightest/80';
+  const infoKeyColor = 'text-theme-darkest/70 dark:text-theme-lightest/70';
+  const infoValueColor = 'text-theme-darkest dark:text-theme-lightest font-semibold';
+  const copyIconColor = 'text-theme-olive dark:text-theme-lime';
+  const closeIconColor = 'text-theme-darkest/60 dark:text-theme-lightest/60 hover:text-theme-darkest dark:hover:text-theme-lightest';
+  
+  const qrContainerBg = 'p-2 bg-white rounded-lg shadow-inner';
+  const qrCodeColor = 'var(--theme-darkest)';
+  const qrTextColor = isGlass ? 'text-theme-darkest dark:text-theme-lightest' : 'text-theme-darkest';
+
+
+  const info = {
+    'Người nhận': 'PHAM VAN HOANG',
+    'Ngân hàng': 'VietinBank',
+    'Số tài khoản': '107884722018',
+    'Số tiền': '20000',
+    'Nội dung': 'Payment',
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex justify-center items-center z-50 p-4 transition-opacity duration-300" onClick={onClose}>
+      <div 
+        className={`rounded-2xl shadow-2xl w-full max-w-2xl relative animate-fade-in-down ${modalClasses} max-h-[90vh] overflow-y-auto`} 
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button onClick={onClose} className={`absolute top-4 right-4 transition-colors z-50 ${closeIconColor}`}>
+          <CloseIcon className="w-7 h-7" />
+        </button>
+
+        <div className="p-6 md:p-8">
+          <h2 className={`text-2xl md:text-3xl font-bold mb-2 ${titleColor}`}>Thông tin thanh toán</h2>
+          <p className={`${subtitleColor} mb-6`}>Vui lòng quyên góp để ủng hộ nhà phát triển.</p>
+
+          <div className="flex flex-col md:flex-row gap-6">
+            <div className={`p-4 rounded-lg flex flex-col items-center justify-center space-y-2 flex-shrink-0 ${innerCardClasses}`}>
+              <div className={qrContainerBg}>
+                  <div 
+                      className="w-28 h-28 md:w-36 md:h-36" 
+                      style={{
+                          backgroundColor: qrCodeColor,
+                          maskImage: 'url(https://raw.githubusercontent.com/harunguyenvn-dev/data/refs/heads/main/img/qrcode.png)',
+                          WebkitMaskImage: 'url(https://raw.githubusercontent.com/harunguyenvn-dev/data/refs/heads/main/img/qrcode.png)',
+                          maskSize: 'contain',
+                          WebkitMaskSize: 'contain',
+                          maskRepeat: 'no-repeat',
+                          WebkitMaskRepeat: 'no-repeat',
+                          maskPosition: 'center',
+                          WebkitMaskPosition: 'center',
+                      }}
+                  >
+                  </div>
+              </div>
+              <p className={`text-sm font-semibold pt-2 ${qrTextColor}`}>Quét mã QR để thanh toán</p>
+              <p className={`text-xs ${isGlass ? 'text-theme-darkest/70 dark:text-theme-lightest/70' : 'text-theme-darkest/70'}`}>Khuyến khích sử dụng</p>
+            </div>
+            
+            <div className="flex-1">
+              <div className={`p-4 rounded-lg h-full flex flex-col ${innerCardClasses}`}>
+                <h3 className={`font-bold mb-3 text-lg ${titleColor}`}>Thông tin chuyển khoản:</h3>
+                <div className="space-y-3">
+                  {Object.entries(info).map(([key, value]) => (
+                    <div key={key} className="flex justify-between items-center text-sm">
+                      <span className={infoKeyColor}>{key}:</span>
+                      <div className="flex items-center gap-2">
+                        <span className={`${infoValueColor} text-base`}>{value === '20000' ? '20.000' : value}</span>
+                        <button onClick={() => copyToClipboard(value, key)} className={`${copyIconColor}/70 hover:opacity-100`}>
+                          {copied === key ? <ClipboardCheckIcon className="w-4 h-4 text-theme-lime" /> : <ClipboardIcon className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className={`mt-6 p-4 rounded-lg text-sm ${innerCardClasses} ${subtitleColor}`}>
+            <p>Vui lòng chuyển khoản đầy đủ thông tin không thêm hay bớt. Khuyến khích quét mã QR.</p>
+            <p>Sau khi bạn quyên góp, xin chân thành cảm ơn sự ủng hộ của bạn. Nếu có vấn đề gì, nhấn vào <a href="#" className={`font-bold underline hover:opacity-80`}>đây</a> để liên hệ qua Fanpage.</p>
+          </div>
+          
+          <div className="mt-6 flex justify-center">
+            <button onClick={onClose} className={`px-12 py-2.5 rounded-lg font-semibold whitespace-nowrap transition-colors ${buttonClasses}`}>
+              Quay lại
+            </button>
+          </div>
+        </div>
+      </div>
+       <style>{`
+        @keyframes fade-in-down {
+          from {
+            opacity: 0;
+            transform: translateY(-20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .animate-fade-in-down {
+          animation: fade-in-down 0.3s ease-out forwards;
+        }
+      `}</style>
+    </div>
+  );
+};
+
+export default DonateModal;
