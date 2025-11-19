@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { CloseIcon, PositionTopIcon, PositionBottomIcon, PositionLeftIcon, PositionRightIcon } from './icons';
 import { Settings } from '../types';
@@ -121,6 +122,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
   const customColors = settings.customThemeColors || defaultCustomColors;
   const hoverEffectClass = 'transition-transform transform hover:scale-105';
 
+  type CustomColorKey = keyof typeof defaultCustomColors;
+
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex justify-center items-center z-50 p-4 transition-opacity duration-300" onClick={onClose}>
       <div 
@@ -199,13 +202,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
                 <h4 className="font-semibold text-slate-800 dark:text-slate-200">Màu sắc tùy chỉnh</h4>
                 <p className="text-sm text-slate-600 dark:text-slate-400">Tạo bảng màu của riêng bạn. Chọn màu sẽ tự động áp dụng chủ đề tùy chỉnh.</p>
                 <div className="grid grid-cols-3 sm:grid-cols-5 gap-4 mt-4">
-                    {(Object.keys(customColors) as Array<keyof typeof customColors>).map((colorName) => (
-                        <div key={colorName} className="flex flex-col items-center gap-2">
-                             <label htmlFor={`color-${colorName}`} className="text-xs font-medium text-slate-500 dark:text-slate-400 capitalize">{colorName}</label>
+                    {(Object.keys(customColors) as Array<CustomColorKey>).map((colorName) => (
+                        <div key={String(colorName)} className="flex flex-col items-center gap-2">
+                             <label htmlFor={`color-${String(colorName)}`} className="text-xs font-medium text-slate-500 dark:text-slate-400 capitalize">{String(colorName)}</label>
                             <div className="relative w-12 h-12 rounded-full border-2 border-slate-300 dark:border-slate-600 overflow-hidden">
                                 <input
                                     type="color"
-                                    id={`color-${colorName}`}
+                                    id={`color-${String(colorName)}`}
                                     value={customColors[colorName]}
                                     onChange={handleCustomColorChange(colorName)}
                                     className="absolute inset-[-4px] w-[calc(100%+8px)] h-[calc(100%+8px)] border-0 p-0 cursor-pointer"
@@ -282,12 +285,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
               description="Phóng to các icon và mục khi di chuột qua."
               checked={settings.enableHoverAnimation}
               onChange={handleToggle('enableHoverAnimation')}
-            />
-            <ToggleSwitch
-              label="Bật nhạc nền"
-              description="Phát nhạc nền trên một số trang."
-              checked={settings.enableBackgroundMusic}
-              onChange={handleToggle('enableBackgroundMusic')}
             />
              <ToggleSwitch
               label="Tắt PopUp Player"
