@@ -226,23 +226,10 @@
         font-style: normal !important;
       }
     </style>
-<link rel="stylesheet" href="/index.css">
 </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/service-worker.js')
-            .then((registration) => {
-              console.log('ServiceWorker registered with scope:', registration.scope);
-            })
-            .catch((error) => {
-              console.error('ServiceWorker registration failed:', error);
-            });
-        });
-      }
-    </script>
+    <!-- Service Worker registration removed to prevent origin mismatch errors in preview environments -->
   </body>
 </html>
