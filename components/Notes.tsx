@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { Settings } from '../types';
+import { TrashIcon } from './icons';
 
 interface NotesProps {
     isFullScreen?: boolean;
@@ -58,7 +59,7 @@ const Notes: React.FC<NotesProps> = ({ isFullScreen = false, isPlayerNote = fals
     }
 
     // Fallback for any other use case (previously the default bottom-aligned note box)
-    const noteContainerClasses = settings?.theme === 'glass-ui' 
+    const noteContainerClasses = settings.theme === 'glass-ui' 
         ? 'glass-card rounded-lg p-4' 
         : 'bg-white/50 dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700 rounded-lg p-4';
 

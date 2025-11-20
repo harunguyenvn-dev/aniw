@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AiringAnime, Settings } from '../types';
-import { BackIcon as ChevronLeftIcon, ChevronRightIcon, BookmarkSolidIcon } from './icons';
+import { BackIcon as ChevronLeftIcon, SettingsIcon, ChevronRightIcon, BookmarkSolidIcon } from './icons';
 
 interface AiringScheduleProps {
     settings: Settings;
@@ -127,6 +127,9 @@ const AiringSchedule: React.FC<AiringScheduleProps> = ({ settings, containerClas
                     <div className="flex items-center gap-2">
                         <button onClick={handleNextMonth} className="p-2 rounded-md hover:bg-theme-darkest/10 dark:hover:bg-theme-lightest/10 transition-colors">
                             <ChevronRightIcon className="w-5 h-5" />
+                        </button>
+                        <button className="p-2 rounded-md hover:bg-theme-darkest/10 dark:hover:bg-theme-lightest/10 transition-colors">
+                            <SettingsIcon className="w-5 h-5" />
                         </button>
                     </div>
                 </header>

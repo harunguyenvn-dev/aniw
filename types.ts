@@ -1,3 +1,12 @@
+
+export interface SubscriptionPlan {
+  id: string;
+  duration: string;
+  price: number;
+  originalPrice: number;
+  discount: number;
+}
+
 export interface Episode {
   name: string;
   episodeTitle: string;
@@ -20,6 +29,7 @@ export interface Settings {
   blockNewTabs: boolean;
   showNotes: boolean;
   headerPosition: 'top' | 'bottom' | 'left' | 'right';
+  headerStyle: 'classic' | 'sidebar-curved';
   resizablePanes: boolean;
   showCalendar: boolean;
   showTodoList: boolean;
@@ -27,7 +37,7 @@ export interface Settings {
   avatarUrl: string;
   enableHoverAnimation: boolean;
   customAnimeDataUrl: string;
-  enableBackgroundMusic: boolean;
+  customCss?: string;
   customThemeColors?: {
     lightest: string;
     mint: string;
@@ -55,6 +65,11 @@ export interface RankedAnime {
   genres: string[];
 }
 
+export interface JikanTitle {
+  type: string;
+  title: string;
+}
+
 export interface JikanImageSet {
   image_url: string;
   small_image_url: string;
@@ -73,7 +88,6 @@ export interface JikanBroadcast {
   string: string | null;
 }
 
-// FIX: Define JikanAired interface based on Jikan API response for anime seasons.
 export interface JikanAired {
   from: string | null;
   to: string | null;
@@ -91,7 +105,26 @@ export interface AiringAnime {
   synopsis: string;
   genres: { name: string }[];
   broadcast: JikanBroadcast;
-  // FIX: Add missing properties 'aired' and 'episodes' to AiringAnime type to match Jikan API.
   aired: JikanAired;
   episodes: number | null;
+}
+
+export interface AnimeThemeTrack {
+  id: number;
+  songTitle: string;
+  artist: string;
+  animeName: string;
+  themeType: string;
+  audioUrl: string;
+  coverUrl: string;
+}
+
+export type View = 'home' | 'glossary' | 'ranking' | 'schedule' | 'music' | 'liked-images' | 'random' | 'relaxation';
+
+export interface OfflineVideo {
+    id: string;
+    animeName: string;
+    episodeTitle: string;
+    savedAt: number;
+    blob: Blob;
 }

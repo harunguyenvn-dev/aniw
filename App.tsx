@@ -11,9 +11,23 @@ import Ranking from './components/Ranking';
 import AiringSchedule from './components/AiringSchedule';
 import MusicPage from './components/MusicPage';
 import LikedImagesPage from './components/LikedImagesPage';
+import CssEditorModal from './components/CssEditorModal';
+import StoreModal from './components/StoreModal';
+import RandomAnimePage from './components/RandomAnimePage';
+import RelaxationPage from './components/RelaxationPage';
 import { Anime, Episode, Settings, View } from './types';
 
 const ANIME_CSV_URL = 'https://raw.githubusercontent.com/harunguyenvn-dev/data/refs/heads/main/anime.csv';
+
+const FALLBACK_DATA: Anime[] = [
+  {
+    name: "Anime Dự Phòng 1",
+    episodes: [
+      { name: "Anime Dự Phòng 1", episodeTitle: "Tập 1", url: "", link: "" },
+      { name: "Anime Dự Phòng 1", episodeTitle: "Tập 2", url: "", link: "" },
+    ]
+  }
+];
 
 const LiquidBackground: React.FC = () => (
     <div className="fixed inset-0 -z-10 overflow-hidden bg-transparent">
@@ -29,6 +43,8 @@ const App: React.FC = () => {
     const [isDonateModalOpen, setIsDonateModalOpen] = useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [isCssEditorOpen, setIsCssEditorOpen] = useState(false);
+    const [isStoreOpen, setIsStoreOpen] = useState(false);
     
     const [animeList, setAnimeList] = useState<Anime[]>([]);
     const [recommendedAnime, setRecommendedAnime] = useState<Anime[]>([]);
@@ -76,6 +92,7 @@ const App: React.FC = () => {
                 blockNewTabs: parsed.blockNewTabs !== undefined ? parsed.blockNewTabs : true,
                 showNotes: parsed.showNotes || false,
                 headerPosition: parsed.headerPosition || 'top',
+                headerStyle: parsed.headerStyle || 'classic',
                 resizablePanes: parsed.resizablePanes || false,
                 showCalendar: parsed.showCalendar || false,
                 showTodoList: parsed.showTodoList || false,
@@ -83,6 +100,7 @@ const App: React.FC = () => {
                 avatarUrl: parsed.avatarUrl || 'https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/icon/ic_avatar5.jpg',
                 enableHoverAnimation: parsed.enableHoverAnimation || false,
                 customAnimeDataUrl: parsed.customAnimeDataUrl || '',
+                customCss: parsed.customCss || '',
                 customThemeColors: parsed.customThemeColors || {
                     lightest: '#ECFDFF',
                     mint: '#41F0D1',
@@ -102,6 +120,7 @@ const App: React.FC = () => {
                 blockNewTabs: true,
                 showNotes: false,
                 headerPosition: 'top',
+                headerStyle: 'classic',
                 resizablePanes: false,
                 showCalendar: false,
                 showTodoList: false,
@@ -109,6 +128,7 @@ const App: React.FC = () => {
                 avatarUrl: 'https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/icon/ic_avatar5.jpg',
                 enableHoverAnimation: false,
                 customAnimeDataUrl: '',
+                customCss: '',
                 customThemeColors: {
                     lightest: '#ECFDFF',
                     mint: '#41F0D1',
@@ -186,6 +206,20 @@ const App: React.FC = () => {
         }
     }, [settings.theme, settings.customThemeColors]);
 
+    // Inject Custom CSS
+    useEffect(() => {
+        const styleId = 'user-custom-css';
+        let styleElement = document.getElementById(styleId);
+        
+        if (!styleElement) {
+            styleElement = document.createElement('style');
+            styleElement.id = styleId;
+            document.head.appendChild(styleElement);
+        }
+        
+        styleElement.innerHTML = settings.customCss || '';
+    }, [settings.customCss]);
+
     useEffect(() => {
         if (settings.colorMode === 'dark') {
             document.documentElement.classList.add('dark');
@@ -224,7 +258,12 @@ const App: React.FC = () => {
                     }
                     const response = await fetch(url);
                     if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
+                         // If custom URL fails, don't throw immediately to allow fallback logic in loadData
+                         if (url !== ANIME_CSV_URL) {
+                             throw new Error(`Custom URL failed with status: ${response.status}`);
+                         }
+                         // If default URL fails, maybe network issue, try fallback
+                         throw new Error(`Network response was not ok for default URL. Status: ${response.status}`);
                     }
                     const csvText = await response.text();
     
@@ -298,19 +337,19 @@ const App: React.FC = () => {
                 const data = await fetchAndParseData(urlToTry);
                 processData(data);
             } catch (e: any) {
+                 console.error("Primary fetch failed:", e);
                 if (settings.customAnimeDataUrl) {
-                    setError(`Lỗi URL tùy chỉnh: ${e.message}. Đang thử nguồn mặc định.`);
                     try {
                         const data = await fetchAndParseData(ANIME_CSV_URL);
                         processData(data);
                         setError(null); 
                     } catch (e2: any) {
-                        setError(`Cả URL tùy chỉnh và mặc định đều thất bại. Lỗi: ${e2.message}`);
-                        setLoading(false);
+                         console.error("Default fetch failed:", e2);
+                         processData(FALLBACK_DATA);
                     }
                 } else {
-                    setError(`Không thể tải dữ liệu phim. Lỗi: ${e.message}`);
-                    setLoading(false);
+                     console.warn("Using fallback data due to error:", e);
+                     processData(FALLBACK_DATA);
                 }
             }
         };
@@ -357,6 +396,10 @@ const App: React.FC = () => {
     };
 
     const renderContent = () => {
+        if (view === 'relaxation') {
+            return <RelaxationPage settings={settings} onClose={() => handleViewChange('home')} />;
+        }
+
         const getContentPadding = (viewType: 'player' | 'main') => {
             const padding = {
                 top: viewType === 'player' ? 'pt-24 px-4 pb-8' : 'pt-24 px-4 sm:px-8 pb-16',
@@ -368,6 +411,14 @@ const App: React.FC = () => {
         }
 
         const getHomePadding = () => {
+            // If using curved sidebar, handle positions
+            if (settings.headerStyle === 'sidebar-curved') {
+                if (settings.headerPosition === 'left') return 'pl-20 p-4';
+                if (settings.headerPosition === 'right') return 'pr-20 p-4';
+                if (settings.headerPosition === 'top') return 'pt-20 p-4';
+                if (settings.headerPosition === 'bottom') return 'pb-20 p-4';
+            }
+
             switch (settings.headerPosition) {
                 case 'top': return 'pt-24 p-4';
                 case 'bottom': return 'pb-24 p-4';
@@ -376,21 +427,48 @@ const App: React.FC = () => {
                 default: return 'p-4';
             }
         };
+
+        // Adjust container padding for curved sidebar style
+        let containerClass = '';
+        let playerContainerClass = '';
+
+        if (settings.headerStyle === 'sidebar-curved') {
+             if (settings.headerPosition === 'left') {
+                containerClass = 'pl-24 p-4 sm:p-8';
+                playerContainerClass = 'pl-24 pr-4 py-8';
+             } else if (settings.headerPosition === 'right') {
+                containerClass = 'pr-24 p-4 sm:p-8';
+                playerContainerClass = 'pr-24 pl-4 py-8';
+             } else if (settings.headerPosition === 'top') {
+                containerClass = 'pt-24 p-4 sm:p-8';
+                playerContainerClass = 'pt-24 px-4 pb-8';
+             } else {
+                containerClass = 'pb-24 p-4 sm:p-8';
+                playerContainerClass = 'pb-24 px-4 pt-8';
+             }
+        } else {
+             containerClass = getContentPadding('main');
+             playerContainerClass = getContentPadding('player');
+        }
+
         
         if (view === 'glossary') {
-            return <Glossary containerClassName={getContentPadding('main')} settings={settings} />;
+            return <Glossary containerClassName={containerClass} settings={settings} />;
         }
         if (view === 'ranking') {
-            return <Ranking settings={settings} containerClassName={getContentPadding('main')} />;
+            return <Ranking settings={settings} containerClassName={containerClass} />;
         }
         if (view === 'schedule') {
-            return <AiringSchedule settings={settings} containerClassName={getContentPadding('main')} />;
+            return <AiringSchedule settings={settings} containerClassName={containerClass} />;
         }
         if (view === 'music') {
             return <MusicPage settings={settings} likedImages={likedImages} onToggleLike={toggleLikeImage} />;
         }
         if (view === 'liked-images') {
             return <LikedImagesPage settings={settings} likedImages={likedImages} onRemoveImage={toggleLikeImage} />;
+        }
+        if (view === 'random') {
+            return <RandomAnimePage animeList={animeList} settings={settings} />;
         }
 
         if (loading) {
@@ -415,7 +493,7 @@ const App: React.FC = () => {
                         anime={selectedAnime} 
                         settings={settings}
                         onClose={handleClosePlayer}
-                        containerClassName={getContentPadding('player')}
+                        containerClassName={playerContainerClass}
                     />;
         }
 
@@ -440,20 +518,26 @@ const App: React.FC = () => {
 
     return (
         <div className={`min-h-screen ${appBg} text-theme-darkest dark:text-theme-lightest`}>
-            {(settings.theme === 'liquid-glass' && view !== 'music') && <LiquidBackground />}
-            <Header 
-                onDonateClick={() => setIsDonateModalOpen(true)} 
-                onHomeClick={() => handleViewChange('home')} 
-                onSearchClick={() => setIsSearchOpen(true)}
-                onGlossaryClick={() => handleViewChange('glossary')}
-                onRankingClick={() => handleViewChange('ranking')}
-                onScheduleClick={() => handleViewChange('schedule')}
-                onMusicClick={() => handleViewChange('music')}
-                onSettingsClick={() => setIsSettingsOpen(true)}
-                onLikedImagesClick={() => handleViewChange('liked-images')}
-                settings={settings}
-                view={view}
-            />
+            {(settings.theme === 'liquid-glass' && view !== 'music' && view !== 'random' && view !== 'relaxation') && <LiquidBackground />}
+            {view !== 'relaxation' && (
+                <Header 
+                    onDonateClick={() => setIsDonateModalOpen(true)} 
+                    onHomeClick={() => handleViewChange('home')} 
+                    onSearchClick={() => setIsSearchOpen(true)}
+                    onGlossaryClick={() => handleViewChange('glossary')}
+                    onRankingClick={() => handleViewChange('ranking')}
+                    onScheduleClick={() => handleViewChange('schedule')}
+                    onMusicClick={() => handleViewChange('music')}
+                    onSettingsClick={() => setIsSettingsOpen(true)}
+                    onLikedImagesClick={() => handleViewChange('liked-images')}
+                    onCssEditorClick={() => setIsCssEditorOpen(true)}
+                    onStoreClick={() => setIsStoreOpen(true)}
+                    onRandomClick={() => handleViewChange('random')}
+                    onRelaxationClick={() => handleViewChange('relaxation')}
+                    settings={settings}
+                    view={view}
+                />
+            )}
             {renderContent()}
             
             <DonateModal isOpen={isDonateModalOpen} onClose={() => setIsDonateModalOpen(false)} settings={settings} />
@@ -467,6 +551,18 @@ const App: React.FC = () => {
             <SettingsModal
                 isOpen={isSettingsOpen}
                 onClose={() => setIsSettingsOpen(false)}
+                settings={settings}
+                onSettingsChange={setSettings}
+            />
+             <CssEditorModal
+                isOpen={isCssEditorOpen}
+                onClose={() => setIsCssEditorOpen(false)}
+                settings={settings}
+                onSettingsChange={setSettings}
+            />
+            <StoreModal
+                isOpen={isStoreOpen}
+                onClose={() => setIsStoreOpen(false)}
                 settings={settings}
                 onSettingsChange={setSettings}
             />

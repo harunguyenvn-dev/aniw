@@ -1,16 +1,15 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Anime, Episode, Settings } from '../types';
 import Notes from './Notes';
-import { BackIcon, ChevronDoubleLeftIcon, ChevronDoubleRightIcon, TrashIcon } from './icons';
+import { BackIcon, ChevronDoubleLeftIcon, ChevronDoubleRightIcon } from './icons';
 
-interface AnimePlayerProps {
-    anime: Anime;
-    settings: Settings;
-    onClose: () => void;
-    containerClassName?: string;
+interface ResizerProps {
+    onMouseDown: (e: React.MouseEvent) => void;
+    orientation: 'vertical' | 'horizontal';
 }
 
-const Resizer: React.FC<{ onMouseDown: (e: React.MouseEvent) => void; orientation: 'vertical' | 'horizontal' }> = ({ onMouseDown, orientation }) => {
+const Resizer: React.FC<ResizerProps> = ({ onMouseDown, orientation }) => {
     const baseClasses = "flex-shrink-0 bg-transparent transition-colors duration-200";
     const verticalClasses = "w-2 cursor-col-resize group";
     const horizontalClasses = "h-2 cursor-row-resize group";
@@ -24,7 +23,14 @@ const Resizer: React.FC<{ onMouseDown: (e: React.MouseEvent) => void; orientatio
     );
 };
 
-const UtilityPanel: React.FC<{ title: string; children: React.ReactNode; settings: Settings; className?: string }> = ({ title, children, settings, className }) => {
+interface UtilityPanelProps {
+    title: string;
+    children: React.ReactNode;
+    settings: Settings;
+    className?: string;
+}
+
+const UtilityPanel: React.FC<UtilityPanelProps> = ({ title, children, settings, className }) => {
     const panelClasses = ['glass-ui', 'liquid-glass'].includes(settings.theme)
         ? 'glass-card' 
         : 'bg-white/5 dark:bg-black/20 backdrop-blur-lg border border-white/10 dark:border-white/10';
@@ -74,7 +80,7 @@ const Calendar: React.FC<{ settings: Settings }> = ({ settings }) => {
 
         for (let i = 0; i < 42; i++) {
             const isCurrentMonth = currentDate.getMonth() === date.getMonth();
-            const isToday = currentDate.getDate() === today.getDate() && currentDate.getMonth() === today.getMonth() && currentDate.getFullYear() === today.getFullYear();
+            const isToday = currentDate.getDate() && currentDate.getMonth() === today.getMonth() && currentDate.getFullYear() === today.getFullYear();
             
             const cellClass = `w-8 h-8 flex items-center justify-center rounded-full text-sm ${
                 isToday ? 'bg-theme-lime text-theme-darkest' :
@@ -98,15 +104,25 @@ const Calendar: React.FC<{ settings: Settings }> = ({ settings }) => {
 };
 
 interface Todo { id: number; text: string; completed: boolean; }
+
 const TodoList: React.FC<{ settings: Settings }> = ({ settings }) => {
     const [todos, setTodos] = useState<Todo[]>(() => {
-        const savedTodos = localStorage.getItem('todos');
-        return savedTodos ? JSON.parse(savedTodos) : [];
+        try {
+            const savedTodos = localStorage.getItem('todos');
+            return savedTodos ? JSON.parse(savedTodos) : [];
+        } catch (error) {
+            console.error("Failed to parse todos from localStorage", error);
+            return [];
+        }
     });
     const [input, setInput] = useState('');
 
     useEffect(() => {
-        localStorage.setItem('todos', JSON.stringify(todos));
+        try {
+            localStorage.setItem('todos', JSON.stringify(todos));
+        } catch (error) {
+            console.error("Failed to save todos to localStorage", error);
+        }
     }, [todos]);
 
     const addTodo = (e: React.FormEvent) => {
@@ -141,7 +157,7 @@ const TodoList: React.FC<{ settings: Settings }> = ({ settings }) => {
                     <li key={todo.id} className="flex items-center gap-2 group">
                         <input type="checkbox" checked={todo.completed} onChange={() => toggleTodo(todo.id)} className="w-4 h-4 rounded text-theme-lime focus:ring-theme-lime bg-slate-300 dark:bg-slate-700 border-slate-400 dark:border-slate-600"/>
                         <span className={`flex-grow text-sm ${todo.completed ? 'line-through text-slate-500' : 'text-slate-800 dark:text-slate-200'}`}>{todo.text}</span>
-                        <button onClick={() => deleteTodo(todo.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-red-500"><TrashIcon className="w-4 h-4"/></button>
+                        <button onClick={() => deleteTodo(todo.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-red-500">X</button>
                     </li>
                 ))}
             </ul>
@@ -184,6 +200,13 @@ const Stopwatch: React.FC<{ settings: Settings }> = ({ settings }) => {
         </div>
     );
 };
+
+interface AnimePlayerProps {
+    anime: Anime;
+    settings: Settings;
+    onClose: () => void;
+    containerClassName?: string;
+}
 
 const AnimePlayer: React.FC<AnimePlayerProps> = ({ anime, settings, onClose, containerClassName }) => {
     const { blockNewTabs, showNotes, disablePopupPlayer, theme, showCalendar, showTodoList, showStopwatch, resizablePanes, enableHoverAnimation } = settings;
@@ -339,23 +362,23 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({ anime, settings, onClose, con
                          <ul className="p-2 space-y-1">
                             {anime.episodes.map((episode, index) => (
                                 <li key={index}>
-                                    <button
-                                        onClick={() => setCurrentEpisode(episode)}
-                                        className={`w-full text-left p-3 h-16 transition-all duration-300 relative block rounded-xl flex items-center group ${
+                                    <div className={`w-full flex items-center p-2 rounded-xl transition-all duration-300 group ${
                                             currentEpisode.link === episode.link
                                                 ? 'bg-theme-lime/20 border-l-4 border-theme-lime'
                                                 : 'border-l-4 border-transparent hover:bg-slate-500/20'
-                                        }`}
-                                    >
-                                        <span className={`absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold transition-all duration-300 ${currentEpisode.link === episode.link ? 'text-theme-lime -translate-x-1' : 'text-slate-400 group-hover:text-slate-300'}`}>
-                                            {String(index + 1).padStart(2, '0')}
-                                        </span>
-                                        <div className="pl-8">
-                                            <h3 className={`text-base font-semibold text-white transition-all duration-300 line-clamp-2 ${currentEpisode.link === episode.link ? 'text-white' : 'text-slate-300'}`}>
+                                        }`}>
+                                        <button
+                                            onClick={() => setCurrentEpisode(episode)}
+                                            className="flex-grow text-left flex items-center"
+                                        >
+                                            <span className={`text-sm font-bold mr-4 ${currentEpisode.link === episode.link ? 'text-theme-lime' : 'text-slate-400 group-hover:text-slate-300'}`}>
+                                                {String(index + 1).padStart(2, '0')}
+                                            </span>
+                                            <h3 className={`text-base font-semibold line-clamp-2 ${currentEpisode.link === episode.link ? 'text-white' : 'text-slate-300'}`}>
                                                 {episode.episodeTitle}
                                             </h3>
-                                        </div>
-                                    </button>
+                                        </button>
+                                    </div>
                                 </li>
                             ))}
                         </ul>
@@ -418,23 +441,25 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({ anime, settings, onClose, con
                         <ul ref={episodeListRef} className="space-y-1">
                             {anime.episodes.map((episode, index) => (
                                 <li key={index} data-episode-link={episode.link}>
-                                    <button
-                                        onClick={() => setCurrentEpisode(episode)}
-                                        className={`w-full text-left p-3 h-20 transition-all duration-300 relative block rounded-xl flex items-center group ${
+                                    <div className={`w-full flex items-center p-3 rounded-xl transition-all duration-300 group ${
                                             currentEpisode.link === episode.link
                                                 ? 'bg-theme-lime/20 dark:bg-theme-lime/10 border-l-4 border-theme-lime'
                                                 : 'border-l-4 border-transparent hover:bg-slate-500/10'
-                                        } ${hoverEffectClass}`}
-                                    >
-                                        <span className={`absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-sm font-bold transition-all duration-300 ${currentEpisode.link === episode.link ? 'text-theme-lime -translate-x-2' : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-500 dark:group-hover:text-slate-400'}`}>
-                                            {String(index + 1).padStart(2, '0')}
-                                        </span>
-                                        <div className="pl-8 sm:pl-10">
-                                            <h3 className={`text-base font-semibold transition-all duration-300 line-clamp-2 ${currentEpisode.link === episode.link ? 'text-theme-darkest dark:text-white' : 'text-slate-700 dark:text-slate-300'}`}>
-                                                {episode.episodeTitle}
-                                            </h3>
-                                        </div>
-                                    </button>
+                                        } ${hoverEffectClass}`}>
+                                        <button
+                                            onClick={() => setCurrentEpisode(episode)}
+                                            className="flex-grow text-left flex items-center"
+                                        >
+                                            <span className={`text-sm font-bold mr-4 ${currentEpisode.link === episode.link ? 'text-theme-lime' : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-500 dark:group-hover:text-slate-400'}`}>
+                                                {String(index + 1).padStart(2, '0')}
+                                            </span>
+                                            <div className="pl-2">
+                                                <h3 className={`text-base font-semibold transition-all duration-300 line-clamp-2 ${currentEpisode.link === episode.link ? 'text-theme-darkest dark:text-white' : 'text-slate-700 dark:text-slate-300'}`}>
+                                                    {episode.episodeTitle}
+                                                </h3>
+                                            </div>
+                                        </button>
+                                    </div>
                                 </li>
                             ))}
                         </ul>

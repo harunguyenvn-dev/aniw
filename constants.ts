@@ -1,5 +1,7 @@
 
-export const PLANS = [
+import { SubscriptionPlan } from './types';
+
+export const PLANS: SubscriptionPlan[] = [
   {
     id: '1m',
     duration: '1 tháng',

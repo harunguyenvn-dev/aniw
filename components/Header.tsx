@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { HomeIcon, SearchIcon, SettingsIcon, BookOpenIcon, TrophyIcon, CalendarDaysIcon, WaifuIcon, QRCodeIcon, HeartIcon } from './icons';
+import { HomeIcon, SearchIcon, SettingsIcon, BookOpenIcon, TrophyIcon, CalendarDaysIcon, WaifuIcon, QRCodeIcon, HeartIcon, CodeBracketSquareIcon, ShoppingBagIcon, ShuffleIcon, SparklesIcon } from './icons';
 import { Settings, View } from '../types';
 
 interface HeaderProps {
@@ -13,6 +13,10 @@ interface HeaderProps {
     onMusicClick: () => void;
     onSettingsClick: () => void;
     onLikedImagesClick: () => void;
+    onCssEditorClick: () => void;
+    onStoreClick: () => void;
+    onRandomClick: () => void;
+    onRelaxationClick: () => void;
     settings: Settings;
     view: View;
 }
@@ -38,7 +42,7 @@ const Tooltip: React.FC<{ text: string; position: 'top' | 'bottom' | 'left' | 'r
     return <span className={tooltipClasses}>{text}</span>;
 };
 
-const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchClick, onGlossaryClick, onRankingClick, onScheduleClick, onMusicClick, onSettingsClick, onLikedImagesClick, settings, view }) => {
+const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchClick, onGlossaryClick, onRankingClick, onScheduleClick, onMusicClick, onSettingsClick, onLikedImagesClick, onCssEditorClick, onStoreClick, onRandomClick, onRelaxationClick, settings, view }) => {
     const [time, setTime] = useState('');
     const [avatarError, setAvatarError] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -68,6 +72,181 @@ const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchCli
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    // --- RENDER FOR CURVED SIDEBAR STYLE ---
+    if (settings.headerStyle === 'sidebar-curved') {
+        const pos = settings.headerPosition;
+        
+        // Colors & Base classes
+        const sidebarBg = ['glass-ui', 'liquid-glass'].includes(settings.theme) ? 'glass-card' : 'bg-white dark:bg-theme-darkest shadow-xl';
+        const textColor = ['glass-ui', 'liquid-glass'].includes(settings.theme) ? 'text-theme-darkest dark:text-theme-lightest' : 'text-slate-600 dark:text-slate-400';
+        
+        // Container Layout based on position
+        let containerClasses = `fixed z-50 flex items-center py-2 transition-all duration-300 ${sidebarBg} `;
+        let listClasses = "flex items-center justify-center gap-4 w-full h-full";
+        let avatarPosClass = "relative";
+        
+        if (pos === 'left') {
+            containerClasses += "left-0 top-0 h-full w-20 flex-col py-6";
+            listClasses = "flex-col gap-4 overflow-y-auto no-scrollbar w-full";
+            avatarPosClass = "mb-6 relative";
+        } else if (pos === 'right') {
+            containerClasses += "right-0 top-0 h-full w-20 flex-col py-6";
+            listClasses = "flex-col gap-4 overflow-y-auto no-scrollbar w-full";
+            avatarPosClass = "mb-6 relative";
+        } else if (pos === 'top') {
+            containerClasses += "top-0 left-0 w-full h-20 flex-row px-6";
+            listClasses = "flex-row gap-6 overflow-x-auto no-scrollbar h-full";
+            avatarPosClass = "mr-6 order-first relative";
+        } else { // bottom
+            containerClasses += "bottom-0 left-0 w-full h-20 flex-row px-6";
+            listClasses = "flex-row gap-6 overflow-x-auto no-scrollbar h-full";
+            avatarPosClass = "mr-6 order-first relative";
+        }
+
+        // Calculate menu position based on sidebar position
+        let menuPositionClass = "absolute z-50";
+        if (pos === 'left') {
+            menuPositionClass += " left-full top-0 ml-2";
+        } else if (pos === 'right') {
+            menuPositionClass += " right-full top-0 mr-2";
+        } else if (pos === 'top') {
+            menuPositionClass += " top-full left-0 mt-2";
+        } else if (pos === 'bottom') {
+            menuPositionClass += " bottom-full left-0 mb-2";
+        }
+
+        const menuItems = [
+            { id: 'home', icon: HomeIcon, onClick: onHomeClick, label: 'Trang chủ' },
+            { id: 'search', icon: SearchIcon, onClick: onSearchClick, label: 'Tìm kiếm' },
+            { id: 'schedule', icon: CalendarDaysIcon, onClick: onScheduleClick, label: 'Lịch' },
+            { id: 'glossary', icon: BookOpenIcon, onClick: onGlossaryClick, label: 'Thuật ngữ' },
+            { id: 'ranking', icon: TrophyIcon, onClick: onRankingClick, label: 'Xếp hạng' },
+            { id: 'music', icon: WaifuIcon, onClick: onMusicClick, label: 'Waifu' },
+            { id: 'donate', icon: QRCodeIcon, onClick: onDonateClick, label: 'Ủng hộ' },
+        ];
+
+        // Curve Logic Helpers
+        const getCurveStyles = (isActive: boolean) => {
+            if (!isActive) return null;
+            
+            // Common curve styling
+            const curveSize = "w-5 h-5 bg-transparent z-0";
+            const shadowColor = "var(--theme-lime)"; 
+
+            if (pos === 'left') {
+                return (
+                    <>
+                        <div className={`absolute right-0 -top-5 ${curveSize} rounded-br-full`} style={{ boxShadow: `5px 5px 0 0 ${shadowColor}` }}></div>
+                        <div className={`absolute right-0 -bottom-5 ${curveSize} rounded-tr-full`} style={{ boxShadow: `5px -5px 0 0 ${shadowColor}` }}></div>
+                        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-14 h-12 bg-theme-lime rounded-l-full z-0 translate-x-2"></div>
+                    </>
+                );
+            } else if (pos === 'right') {
+                return (
+                    <>
+                        <div className={`absolute left-0 -top-5 ${curveSize} rounded-bl-full`} style={{ boxShadow: `-5px 5px 0 0 ${shadowColor}` }}></div>
+                        <div className={`absolute left-0 -bottom-5 ${curveSize} rounded-tl-full`} style={{ boxShadow: `-5px -5px 0 0 ${shadowColor}` }}></div>
+                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-14 h-12 bg-theme-lime rounded-r-full z-0 -translate-x-2"></div>
+                    </>
+                );
+            } else if (pos === 'top') {
+                return (
+                    <>
+                         <div className={`absolute bottom-0 -left-5 ${curveSize} rounded-br-full`} style={{ boxShadow: `5px 5px 0 0 ${shadowColor}` }}></div>
+                         <div className={`absolute bottom-0 -right-5 ${curveSize} rounded-bl-full`} style={{ boxShadow: `-5px 5px 0 0 ${shadowColor}` }}></div>
+                         <div className="absolute bottom-0 left-1/2 -translate-x-1/2 h-14 w-12 bg-theme-lime rounded-t-full z-0 translate-y-2"></div>
+                    </>
+                );
+            } else { // bottom
+                return (
+                    <>
+                         <div className={`absolute top-0 -left-5 ${curveSize} rounded-tr-full`} style={{ boxShadow: `5px -5px 0 0 ${shadowColor}` }}></div>
+                         <div className={`absolute top-0 -right-5 ${curveSize} rounded-tl-full`} style={{ boxShadow: `-5px -5px 0 0 ${shadowColor}` }}></div>
+                         <div className="absolute top-0 left-1/2 -translate-x-1/2 h-14 w-12 bg-theme-lime rounded-b-full z-0 -translate-y-2"></div>
+                    </>
+                );
+            }
+        };
+
+        const getTooltipPos = () => {
+            if (pos === 'left') return 'right';
+            if (pos === 'right') return 'left';
+            if (pos === 'top') return 'bottom';
+            return 'top';
+        };
+
+        return (
+            <div className={containerClasses}>
+                {/* Avatar Section */}
+                <div className={avatarPosClass} ref={menuRef}>
+                     <button 
+                        onClick={() => setIsMenuOpen(!isMenuOpen)}
+                        className="w-10 h-10 rounded-full overflow-hidden ring-2 ring-offset-2 ring-offset-transparent ring-theme-lime/70 transition-transform hover:scale-110"
+                    >
+                        <img
+                            src={avatarError ? "https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/icon/ic_avatar5.jpg" : settings.avatarUrl}
+                            alt="User Avatar"
+                            className="w-full h-full object-cover"
+                            onError={() => setAvatarError(true)}
+                        />
+                    </button>
+                     {isMenuOpen && (
+                        <div className={`${menuPositionClass} w-56 rounded-xl shadow-lg overflow-hidden ${['glass-ui', 'liquid-glass'].includes(settings.theme) ? 'glass-card' : 'bg-white dark:bg-theme-darkest border border-slate-200 dark:border-slate-700'}`}>
+                            <div className="py-1">
+                                 <button onClick={() => { onRelaxationClick(); setIsMenuOpen(false); }} className="flex items-center gap-3 w-full px-4 py-3 text-sm text-left text-slate-700 dark:text-slate-200 hover:bg-theme-mint/30 dark:hover:bg-theme-olive/30 transition-colors">
+                                    <SparklesIcon className="w-5 h-5 text-theme-olive dark:text-theme-lime" /> Thư giãn
+                                </button>
+                                 <button onClick={() => { onLikedImagesClick(); setIsMenuOpen(false); }} className="flex items-center gap-3 w-full px-4 py-3 text-sm text-left text-slate-700 dark:text-slate-200 hover:bg-theme-mint/30 dark:hover:bg-theme-olive/30 transition-colors">
+                                    <HeartIcon className="w-5 h-5 text-theme-olive dark:text-theme-lime" /> Ảnh đã thích
+                                </button>
+                                <button onClick={() => { onStoreClick(); setIsMenuOpen(false); }} className="flex items-center gap-3 w-full px-4 py-3 text-sm text-left text-slate-700 dark:text-slate-200 hover:bg-theme-mint/30 dark:hover:bg-theme-olive/30 transition-colors">
+                                    <ShoppingBagIcon className="w-5 h-5 text-theme-olive dark:text-theme-lime" /> Cửa hàng giao diện
+                                </button>
+                                <button onClick={() => { onRandomClick(); setIsMenuOpen(false); }} className="flex items-center gap-3 w-full px-4 py-3 text-sm text-left text-slate-700 dark:text-slate-200 hover:bg-theme-mint/30 dark:hover:bg-theme-olive/30 transition-colors">
+                                    <ShuffleIcon className="w-5 h-5 text-theme-olive dark:text-theme-lime" /> Anime Random
+                                </button>
+                                <button onClick={() => { onCssEditorClick(); setIsMenuOpen(false); }} className="flex items-center gap-3 w-full px-4 py-3 text-sm text-left text-slate-700 dark:text-slate-200 hover:bg-theme-mint/30 dark:hover:bg-theme-olive/30 transition-colors">
+                                    <CodeBracketSquareIcon className="w-5 h-5 text-theme-olive dark:text-theme-lime" /> Tùy chỉnh CSS
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Navigation Items */}
+                <div className={listClasses}>
+                    {menuItems.map((item) => {
+                        const isActive = (view === item.id) || (item.id === 'search' && false) || (item.id === 'donate' && false);
+                        return (
+                            <div key={item.id} className={`relative flex justify-center group ${pos === 'left' || pos === 'right' ? 'w-full py-1' : 'h-full px-1'}`}>
+                                {getCurveStyles(isActive)}
+                                
+                                <button
+                                    onClick={item.onClick}
+                                    className={`relative z-10 w-10 h-10 flex items-center justify-center rounded-full transition-all duration-300 ${isActive ? 'text-theme-darkest scale-110' : `${textColor} hover:bg-black/5 dark:hover:bg-white/10`}`}
+                                >
+                                    <item.icon className="w-6 h-6" />
+                                </button>
+                                
+                                {/* Tooltip */}
+                                <Tooltip text={item.label} position={getTooltipPos()} />
+                            </div>
+                        );
+                    })}
+                </div>
+
+                {/* Bottom/End Settings */}
+                <div className={`${pos === 'top' || pos === 'bottom' ? 'ml-6' : 'mt-auto mb-2'}`}>
+                    <button onClick={onSettingsClick} className={`w-10 h-10 flex items-center justify-center rounded-full transition-all duration-300 ${textColor} hover:bg-black/5 dark:hover:bg-white/10`}>
+                        <SettingsIcon className="w-6 h-6" />
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+
+    // --- RENDER FOR CLASSIC STYLE (Default) ---
     const positionStyles = {
         top: {
             header: 'fixed top-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-lg md:max-w-2xl lg:max-w-4xl',
@@ -127,6 +306,16 @@ const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchCli
                           settings.headerPosition === 'left' ? 'right' :
                           settings.headerPosition === 'right' ? 'left' :
                           'bottom';
+
+    // Dynamic menu positioning for Classic Style
+    let menuPositionClass = "absolute z-50 right-0 mt-2"; // Default Top behavior
+    if (settings.headerPosition === 'bottom') {
+        menuPositionClass = "absolute z-50 right-0 bottom-full mb-2";
+    } else if (settings.headerPosition === 'left') {
+        menuPositionClass = "absolute z-50 left-full top-0 ml-2";
+    } else if (settings.headerPosition === 'right') {
+        menuPositionClass = "absolute z-50 right-full top-0 mr-2";
+    }
 
     return (
         <header className={`z-50 ${styles.header}`}>
@@ -197,8 +386,18 @@ const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchCli
                             />
                         </button>
                          {isMenuOpen && (
-                            <div className={`absolute right-0 mt-2 w-48 rounded-xl shadow-lg overflow-hidden z-50 ${['glass-ui', 'liquid-glass'].includes(settings.theme) ? 'glass-card' : 'bg-theme-lightest dark:bg-theme-darkest border border-slate-200 dark:border-slate-700'}`}>
+                            <div className={`${menuPositionClass} w-56 rounded-xl shadow-lg overflow-hidden ${['glass-ui', 'liquid-glass'].includes(settings.theme) ? 'glass-card' : 'bg-theme-lightest dark:bg-theme-darkest border border-slate-200 dark:border-slate-700'}`}>
                                 <div className="py-1">
+                                     <button
+                                        onClick={() => {
+                                            onRelaxationClick();
+                                            setIsMenuOpen(false);
+                                        }}
+                                        className="flex items-center gap-3 w-full px-4 py-3 text-sm text-left text-slate-700 dark:text-slate-200 hover:bg-theme-mint/30 dark:hover:bg-theme-olive/30 transition-colors"
+                                    >
+                                        <SparklesIcon className="w-5 h-5 text-theme-olive dark:text-theme-lime" />
+                                        Thư giãn
+                                    </button>
                                     <button
                                         onClick={() => {
                                             onLikedImagesClick();
@@ -208,6 +407,36 @@ const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchCli
                                     >
                                         <HeartIcon className="w-5 h-5 text-theme-olive dark:text-theme-lime" />
                                         Ảnh đã thích
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            onStoreClick();
+                                            setIsMenuOpen(false);
+                                        }}
+                                        className="flex items-center gap-3 w-full px-4 py-3 text-sm text-left text-slate-700 dark:text-slate-200 hover:bg-theme-mint/30 dark:hover:bg-theme-olive/30 transition-colors"
+                                    >
+                                        <ShoppingBagIcon className="w-5 h-5 text-theme-olive dark:text-theme-lime" />
+                                        Cửa hàng giao diện
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            onRandomClick();
+                                            setIsMenuOpen(false);
+                                        }}
+                                        className="flex items-center gap-3 w-full px-4 py-3 text-sm text-left text-slate-700 dark:text-slate-200 hover:bg-theme-mint/30 dark:hover:bg-theme-olive/30 transition-colors"
+                                    >
+                                        <ShuffleIcon className="w-5 h-5 text-theme-olive dark:text-theme-lime" />
+                                        Anime Random
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            onCssEditorClick();
+                                            setIsMenuOpen(false);
+                                        }}
+                                        className="flex items-center gap-3 w-full px-4 py-3 text-sm text-left text-slate-700 dark:text-slate-200 hover:bg-theme-mint/30 dark:hover:bg-theme-olive/30 transition-colors"
+                                    >
+                                        <CodeBracketSquareIcon className="w-5 h-5 text-theme-olive dark:text-theme-lime" />
+                                        Tùy chỉnh CSS
                                     </button>
                                 </div>
                             </div>

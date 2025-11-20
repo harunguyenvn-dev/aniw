@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Settings } from '../types';
 import { DownloadIcon, ChevronUpIcon, ChevronDownIcon, HeartIcon } from './icons';
@@ -21,6 +22,12 @@ const MusicPage: React.FC<MusicPageProps> = ({ settings, likedImages, onToggleLi
     
     const loadingRef = useRef(loading);
     loadingRef.current = loading;
+
+    // Swipe handling state
+    const [touchStart, setTouchStart] = useState<number | null>(null);
+    const [touchEnd, setTouchEnd] = useState<number | null>(null);
+    const minSwipeDistance = 50;
+    const lastWheelTime = useRef(0);
 
     const fetchWaifus = useCallback(async (isInitial = false) => {
         if (!isInitial && loadingRef.current) return;
@@ -90,6 +97,39 @@ const MusicPage: React.FC<MusicPageProps> = ({ settings, likedImages, onToggleLi
         }
     };
 
+    // Touch / Swipe Handlers
+    const onTouchStart = (e: React.TouchEvent) => {
+        setTouchEnd(null); 
+        setTouchStart(e.targetTouches[0].clientY);
+    };
+
+    const onTouchMove = (e: React.TouchEvent) => setTouchEnd(e.targetTouches[0].clientY);
+
+    const onTouchEnd = () => {
+        if (!touchStart || !touchEnd) return;
+        const distance = touchStart - touchEnd;
+        const isSwipeUp = distance > minSwipeDistance;
+        const isSwipeDown = distance < -minSwipeDistance;
+        
+        if (isSwipeUp) handleNext();
+        if (isSwipeDown) handlePrev();
+    };
+
+    // Mouse Wheel Handler with throttle
+    const onWheel = (e: React.WheelEvent) => {
+        const now = Date.now();
+        // Throttle to avoid rapid skipping (e.g., 500ms)
+        if (now - lastWheelTime.current < 500) return;
+        
+        if (e.deltaY > 0) {
+            handleNext();
+            lastWheelTime.current = now;
+        } else if (e.deltaY < 0) {
+            handlePrev();
+            lastWheelTime.current = now;
+        }
+    };
+
     const currentImage = images[activeIndex];
     const isLiked = currentImage && likedImages.includes(currentImage.url);
 
@@ -113,7 +153,13 @@ const MusicPage: React.FC<MusicPageProps> = ({ settings, likedImages, onToggleLi
     }
 
     return (
-        <main className="h-screen w-screen relative overflow-hidden bg-theme-darkest text-white">
+        <main 
+            className="h-screen w-screen relative overflow-hidden bg-theme-darkest text-white touch-none"
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+            onWheel={onWheel}
+        >
             {/* Blurred Background */}
             {currentImage && (
                 <div className="absolute inset-0 w-full h-full transition-all duration-500 ease-in-out">
