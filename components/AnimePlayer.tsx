@@ -2,7 +2,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Anime, Episode, Settings } from '../types';
 import Notes from './Notes';
-import { BackIcon, ChevronDoubleLeftIcon, ChevronDoubleRightIcon } from './icons';
+import { BackIcon, ChevronDoubleLeftIcon, ChevronDoubleRightIcon, PlayIcon } from './icons';
+
+declare var Hls: any;
 
 interface ResizerProps {
     onMouseDown: (e: React.MouseEvent) => void;
@@ -213,6 +215,7 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({ anime, settings, onClose, con
     const [currentEpisode, setCurrentEpisode] = useState<Episode>(anime.episodes[0]);
     const [isEpisodeListOpen, setIsEpisodeListOpen] = useState(true);
     const episodeListRef = useRef<HTMLUListElement>(null);
+    const videoRef = useRef<HTMLVideoElement>(null);
 
     // Resizable panes state and logic
     const [listPanelWidth, setListPanelWidth] = useState(576); // 36rem
@@ -222,6 +225,32 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({ anime, settings, onClose, con
     const resizingPanel = useRef<'list' | 'utility' | null>(null);
     const startX = useRef(0);
     const startWidth = useRef(0);
+
+    const isM3U8 = currentEpisode.link.includes('.m3u8');
+
+    // Handle HLS
+    useEffect(() => {
+        if (isM3U8 && videoRef.current) {
+            const video = videoRef.current;
+            if (Hls.isSupported()) {
+                const hls = new Hls();
+                hls.loadSource(currentEpisode.link);
+                hls.attachMedia(video);
+                hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                   video.play().catch(e => console.log("Auto-play prevented", e));
+                });
+                return () => {
+                    hls.destroy();
+                };
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = currentEpisode.link;
+                video.addEventListener('loadedmetadata', () => {
+                   video.play().catch(e => console.log("Auto-play prevented", e));
+                });
+            }
+        }
+    }, [currentEpisode.link, isM3U8]);
+
 
     const handleMouseDown = useCallback((panel: 'list' | 'utility') => (e: React.MouseEvent) => {
         if (!resizablePanes) return;
@@ -291,7 +320,8 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({ anime, settings, onClose, con
         }
     };
     
-    const playbackSrc = getPlaybackLink(currentEpisode.link);
+    // Only use iframe link processing if NOT HLS
+    const playbackSrc = isM3U8 ? currentEpisode.link : getPlaybackLink(currentEpisode.link);
 
     const utilityPanels = [
         showNotes && { id: 'notes', title: 'Ghi chú', component: <Notes settings={settings} isTiled /> },
@@ -302,23 +332,54 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({ anime, settings, onClose, con
 
     const hoverEffectClass = enableHoverAnimation ? 'transform hover:scale-[1.02] transition-transform' : '';
 
+    const renderPlayer = () => {
+        if (isM3U8) {
+            return (
+                <video 
+                    ref={videoRef}
+                    className="w-full h-full object-contain bg-black"
+                    controls
+                    autoPlay
+                    playsInline
+                />
+            );
+        }
+        return (
+            <iframe
+                key={currentEpisode.link}
+                src={playbackSrc}
+                title={currentEpisode.episodeTitle}
+                allow="autoplay; encrypted-media; picture-in-picture"
+                allowFullScreen
+                loading="lazy"
+                referrerPolicy="no-referrer"
+                sandbox={blockNewTabs ? "allow-scripts allow-same-origin allow-presentation" : "allow-scripts allow-same-origin allow-popups allow-presentation"}
+                className="w-full h-full border-0"
+            ></iframe>
+        );
+    }
+
     if (disablePopupPlayer) {
         const popupPlayerClasses = ['glass-ui', 'liquid-glass'].includes(theme) 
             ? 'glass-card'
             : 'bg-theme-darkest/95 backdrop-blur-lg border-l border-white/10';
         
         return (
-            <div className="fixed inset-0 bg-black z-60 animate-fade-in">
-                <div className="w-full h-full">
-                    <iframe
-                        key={currentEpisode.link}
-                        src={playbackSrc}
-                        title={currentEpisode.episodeTitle}
-                        allow="autoplay; encrypted-media; picture-in-picture"
-                        allowFullScreen
-                        sandbox={blockNewTabs ? "allow-scripts allow-same-origin allow-presentation" : "allow-scripts allow-same-origin allow-popups allow-presentation"}
-                        className="w-full h-full border-0"
-                    ></iframe>
+            <div className="fixed inset-0 bg-black z-60 animate-fade-in flex flex-col">
+                <div className="flex-grow w-full relative group/player">
+                    {renderPlayer()}
+                    
+                    {/* Fallback button for blocked embeddings */}
+                     <a 
+                        href={currentEpisode.link} 
+                        target="_blank" 
+                        rel="noreferrer noopener"
+                        className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-red-600/80 hover:bg-red-600 text-white px-4 py-2 rounded-full text-sm font-bold opacity-0 group-hover/player:opacity-100 transition-opacity duration-300 flex items-center gap-2"
+                        style={{ pointerEvents: 'auto' }}
+                    >
+                         <PlayIcon className="w-4 h-4" /> 
+                         Nếu video lỗi, bấm vào đây để mở tab mới
+                    </a>
                 </div>
                 
                 <button
@@ -471,16 +532,19 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({ anime, settings, onClose, con
                 {/* Right Column: Player and Utilities */}
                 <div className="flex-grow h-2/3 md:h-full flex flex-col md:flex-row gap-2 sm:gap-4 overflow-hidden">
                     <div className="flex-grow h-full flex flex-col p-2 sm:p-4">
-                         <div className={`flex-grow aspect-video rounded-lg overflow-hidden shadow-2xl shadow-black/50 ${['glass-ui', 'liquid-glass'].includes(theme) ? 'glass-card' : 'bg-black border border-slate-700'}`}>
-                            <iframe
-                                key={currentEpisode.link}
-                                src={playbackSrc}
-                                title={currentEpisode.episodeTitle}
-                                allow="autoplay; encrypted-media; picture-in-picture"
-                                allowFullScreen
-                                sandbox={blockNewTabs ? "allow-scripts allow-same-origin allow-presentation" : "allow-scripts allow-same-origin allow-popups allow-presentation"}
-                                className="w-full h-full"
-                            ></iframe>
+                         <div className={`flex-grow aspect-video rounded-lg overflow-hidden shadow-2xl shadow-black/50 relative group/player ${['glass-ui', 'liquid-glass'].includes(theme) ? 'glass-card' : 'bg-black border border-slate-700'}`}>
+                            {renderPlayer()}
+                            
+                            {/* Backup Link for Regular View */}
+                            <a 
+                                href={currentEpisode.link} 
+                                target="_blank" 
+                                rel="noreferrer noopener"
+                                className="absolute bottom-4 right-4 bg-slate-800/80 hover:bg-theme-lime hover:text-theme-darkest text-white px-3 py-1.5 rounded-lg text-xs font-bold opacity-0 group-hover/player:opacity-100 transition-all duration-300 flex items-center gap-2 border border-white/20"
+                            >
+                                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                                Mở Link Gốc (Tab Mới)
+                            </a>
                         </div>
                     </div>
                     

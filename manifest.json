@@ -1,7 +1,7 @@
 {
   "name": "AniW WIBU",
   "short_name": "AniW",
-  "description": "APP ĐỀ MÔ DÀNH CHO WIBU.",
+  "description": "AniW CLB anime tại HPU",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#1f2937",

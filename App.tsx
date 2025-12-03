@@ -12,9 +12,11 @@ import AiringSchedule from './components/AiringSchedule';
 import MusicPage from './components/MusicPage';
 import LikedImagesPage from './components/LikedImagesPage';
 import CssEditorModal from './components/CssEditorModal';
-import StoreModal from './components/StoreModal';
 import RandomAnimePage from './components/RandomAnimePage';
 import RelaxationPage from './components/RelaxationPage';
+import TodoListPage from './components/TodoListPage';
+import SplashScreen from './components/SplashScreen';
+import StoreModal from './components/StoreModal';
 import { Anime, Episode, Settings, View } from './types';
 
 const ANIME_CSV_URL = 'https://raw.githubusercontent.com/harunguyenvn-dev/data/refs/heads/main/anime.csv';
@@ -40,11 +42,13 @@ const LiquidBackground: React.FC = () => (
 );
 
 const App: React.FC = () => {
+    const [isLoadingApp, setIsLoadingApp] = useState(true);
+    const [installPrompt, setInstallPrompt] = useState<any>(null);
     const [isDonateModalOpen, setIsDonateModalOpen] = useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isCssEditorOpen, setIsCssEditorOpen] = useState(false);
-    const [isStoreOpen, setIsStoreOpen] = useState(false);
+    const [isStoreOpen, setIsStoreOpen] = useState(false); // New State
     
     const [animeList, setAnimeList] = useState<Anime[]>([]);
     const [recommendedAnime, setRecommendedAnime] = useState<Anime[]>([]);
@@ -63,6 +67,32 @@ const App: React.FC = () => {
             return [];
         }
     });
+
+    // PWA Install Prompt Handler
+    useEffect(() => {
+        const handler = (e: any) => {
+            e.preventDefault();
+            setInstallPrompt(e);
+        };
+        window.addEventListener('beforeinstallprompt', handler);
+        return () => window.removeEventListener('beforeinstallprompt', handler);
+    }, []);
+
+    const handleInstallApp = () => {
+        if (installPrompt) {
+            installPrompt.prompt();
+            installPrompt.userChoice.then((choiceResult: any) => {
+                if (choiceResult.outcome === 'accepted') {
+                    console.log('User accepted the A2HS prompt');
+                } else {
+                    console.log('User dismissed the A2HS prompt');
+                }
+                setInstallPrompt(null);
+            });
+        } else {
+             alert("Bạn có thể cài đặt ứng dụng bằng cách chọn 'Thêm vào màn hình chính' trong menu trình duyệt của bạn.");
+        }
+    };
 
     useEffect(() => {
         localStorage.setItem('likedImages', JSON.stringify(likedImages));
@@ -399,6 +429,9 @@ const App: React.FC = () => {
         if (view === 'relaxation') {
             return <RelaxationPage settings={settings} onClose={() => handleViewChange('home')} />;
         }
+        if (view === 'todo-list') {
+            return <TodoListPage settings={settings} onBack={() => handleViewChange('home')} />;
+        }
 
         const getContentPadding = (viewType: 'player' | 'main') => {
             const padding = {
@@ -411,12 +444,16 @@ const App: React.FC = () => {
         }
 
         const getHomePadding = () => {
-            // If using curved sidebar, handle positions
+            // If using curved sidebar or focus-ui, handle positions
             if (settings.headerStyle === 'sidebar-curved') {
                 if (settings.headerPosition === 'left') return 'pl-20 p-4';
                 if (settings.headerPosition === 'right') return 'pr-20 p-4';
                 if (settings.headerPosition === 'top') return 'pt-20 p-4';
                 if (settings.headerPosition === 'bottom') return 'pb-20 p-4';
+            }
+            if (settings.headerStyle === 'focus-ui') {
+                 if (settings.headerPosition === 'top') return 'pt-24 p-4';
+                 return 'pb-24 p-4'; // Default bottom
             }
 
             switch (settings.headerPosition) {
@@ -428,7 +465,7 @@ const App: React.FC = () => {
             }
         };
 
-        // Adjust container padding for curved sidebar style
+        // Adjust container padding for styles
         let containerClass = '';
         let playerContainerClass = '';
 
@@ -446,6 +483,14 @@ const App: React.FC = () => {
                 containerClass = 'pb-24 p-4 sm:p-8';
                 playerContainerClass = 'pb-24 px-4 pt-8';
              }
+        } else if (settings.headerStyle === 'focus-ui') {
+            if (settings.headerPosition === 'top') {
+                containerClass = 'pt-24 p-4 sm:p-8';
+                playerContainerClass = 'pt-24 px-4 pb-8';
+            } else {
+                containerClass = 'pb-24 p-4 sm:p-8';
+                playerContainerClass = 'pb-24 px-4 pt-8';
+            }
         } else {
              containerClass = getContentPadding('main');
              playerContainerClass = getContentPadding('player');
@@ -518,8 +563,10 @@ const App: React.FC = () => {
 
     return (
         <div className={`min-h-screen ${appBg} text-theme-darkest dark:text-theme-lightest`}>
-            {(settings.theme === 'liquid-glass' && view !== 'music' && view !== 'random' && view !== 'relaxation') && <LiquidBackground />}
-            {view !== 'relaxation' && (
+            {isLoadingApp && <SplashScreen finishLoading={() => setIsLoadingApp(false)} />}
+            
+            {(settings.theme === 'liquid-glass' && view !== 'music' && view !== 'random' && view !== 'relaxation' && view !== 'todo-list') && <LiquidBackground />}
+            {(view !== 'relaxation' && view !== 'todo-list') && (
                 <Header 
                     onDonateClick={() => setIsDonateModalOpen(true)} 
                     onHomeClick={() => handleViewChange('home')} 
@@ -531,9 +578,11 @@ const App: React.FC = () => {
                     onSettingsClick={() => setIsSettingsOpen(true)}
                     onLikedImagesClick={() => handleViewChange('liked-images')}
                     onCssEditorClick={() => setIsCssEditorOpen(true)}
-                    onStoreClick={() => setIsStoreOpen(true)}
                     onRandomClick={() => handleViewChange('random')}
                     onRelaxationClick={() => handleViewChange('relaxation')}
+                    onTodoListClick={() => handleViewChange('todo-list')}
+                    onStoreClick={() => setIsStoreOpen(true)}
+                    installApp={handleInstallApp}
                     settings={settings}
                     view={view}
                 />
@@ -560,9 +609,9 @@ const App: React.FC = () => {
                 settings={settings}
                 onSettingsChange={setSettings}
             />
-            <StoreModal
-                isOpen={isStoreOpen}
-                onClose={() => setIsStoreOpen(false)}
+             <StoreModal 
+                isOpen={isStoreOpen} 
+                onClose={() => setIsStoreOpen(false)} 
                 settings={settings}
                 onSettingsChange={setSettings}
             />

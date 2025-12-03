@@ -29,7 +29,7 @@ export interface Settings {
   blockNewTabs: boolean;
   showNotes: boolean;
   headerPosition: 'top' | 'bottom' | 'left' | 'right';
-  headerStyle: 'classic' | 'sidebar-curved';
+  headerStyle: 'classic' | 'sidebar-curved' | 'focus-ui';
   resizablePanes: boolean;
   showCalendar: boolean;
   showTodoList: boolean;
@@ -119,7 +119,7 @@ export interface AnimeThemeTrack {
   coverUrl: string;
 }
 
-export type View = 'home' | 'glossary' | 'ranking' | 'schedule' | 'music' | 'liked-images' | 'random' | 'relaxation';
+export type View = 'home' | 'glossary' | 'ranking' | 'schedule' | 'music' | 'liked-images' | 'random' | 'relaxation' | 'todo-list';
 
 export interface OfflineVideo {
     id: string;
