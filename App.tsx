@@ -17,6 +17,7 @@ import RelaxationPage from './components/RelaxationPage';
 import TodoListPage from './components/TodoListPage';
 import SplashScreen from './components/SplashScreen';
 import StoreModal from './components/StoreModal';
+import DataStoreModal from './components/DataStoreModal';
 import { Anime, Episode, Settings, View } from './types';
 
 const ANIME_CSV_URL = 'https://raw.githubusercontent.com/harunguyenvn-dev/data/refs/heads/main/anime.csv';
@@ -48,7 +49,8 @@ const App: React.FC = () => {
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isCssEditorOpen, setIsCssEditorOpen] = useState(false);
-    const [isStoreOpen, setIsStoreOpen] = useState(false); // New State
+    const [isStoreOpen, setIsStoreOpen] = useState(false); 
+    const [isDataStoreOpen, setIsDataStoreOpen] = useState(false); // New state for Data Store
     
     const [animeList, setAnimeList] = useState<Anime[]>([]);
     const [recommendedAnime, setRecommendedAnime] = useState<Anime[]>([]);
@@ -582,6 +584,7 @@ const App: React.FC = () => {
                     onRelaxationClick={() => handleViewChange('relaxation')}
                     onTodoListClick={() => handleViewChange('todo-list')}
                     onStoreClick={() => setIsStoreOpen(true)}
+                    onDataStoreClick={() => setIsDataStoreOpen(true)} // Handle click
                     installApp={handleInstallApp}
                     settings={settings}
                     view={view}
@@ -612,6 +615,12 @@ const App: React.FC = () => {
              <StoreModal 
                 isOpen={isStoreOpen} 
                 onClose={() => setIsStoreOpen(false)} 
+                settings={settings}
+                onSettingsChange={setSettings}
+            />
+            <DataStoreModal 
+                isOpen={isDataStoreOpen} 
+                onClose={() => setIsDataStoreOpen(false)} 
                 settings={settings}
                 onSettingsChange={setSettings}
             />

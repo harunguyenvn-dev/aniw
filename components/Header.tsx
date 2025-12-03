@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { HomeIcon, SearchIcon, SettingsIcon, BookOpenIcon, TrophyIcon, CalendarDaysIcon, WaifuIcon, QRCodeIcon, HeartIcon, CodeBracketSquareIcon, ShuffleIcon, SparklesIcon, ClipboardCheckIcon, ShoppingBagIcon } from './icons';
+import { HomeIcon, SearchIcon, SettingsIcon, BookOpenIcon, TrophyIcon, CalendarDaysIcon, WaifuIcon, QRCodeIcon, HeartIcon, CodeBracketSquareIcon, ShuffleIcon, SparklesIcon, ClipboardCheckIcon, ShoppingBagIcon, DatabaseIcon } from './icons';
 import { Settings, View } from '../types';
 
 interface HeaderProps {
@@ -17,7 +17,8 @@ interface HeaderProps {
     onRandomClick: () => void;
     onRelaxationClick: () => void;
     onTodoListClick: () => void;
-    onStoreClick?: () => void; // Add this prop
+    onStoreClick?: () => void; 
+    onDataStoreClick?: () => void; // New prop
     installApp: () => void;
     settings: Settings;
     view: View;
@@ -36,7 +37,7 @@ const Tooltip: React.FC<{ text: string; position: 'top' | 'bottom' | 'left' | 'r
     return <span className={tooltipClasses}>{text}</span>;
 };
 
-const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchClick, onGlossaryClick, onRankingClick, onScheduleClick, onMusicClick, onSettingsClick, onLikedImagesClick, onCssEditorClick, onRandomClick, onRelaxationClick, onTodoListClick, onStoreClick, installApp, settings, view }) => {
+const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchClick, onGlossaryClick, onRankingClick, onScheduleClick, onMusicClick, onSettingsClick, onLikedImagesClick, onCssEditorClick, onRandomClick, onRelaxationClick, onTodoListClick, onStoreClick, onDataStoreClick, installApp, settings, view }) => {
     const [time, setTime] = useState('');
     const [avatarError, setAvatarError] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -134,6 +135,9 @@ const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchCli
                             {isMenuOpen && (
                                 <div className={`absolute ${pos === 'top-6' ? 'top-full mt-4' : 'bottom-full mb-4'} right-0 w-60 rounded-2xl bg-[#1a1a2e]/95 backdrop-blur-xl border border-white/10 shadow-2xl overflow-hidden text-white animate-in fade-in zoom-in-95 duration-200 origin-bottom-right`}>
                                     <div className="p-2 space-y-1">
+                                         <button onClick={() => { onDataStoreClick && onDataStoreClick(); setIsMenuOpen(false); }} className="flex items-center gap-3 w-full px-4 py-3 text-sm rounded-xl hover:bg-white/10 transition-colors">
+                                            <DatabaseIcon className="w-5 h-5 text-indigo-300" /> Kho dữ liệu
+                                        </button>
                                         <button onClick={() => { onTodoListClick(); setIsMenuOpen(false); }} className="flex items-center gap-3 w-full px-4 py-3 text-sm rounded-xl hover:bg-white/10 transition-colors">
                                             <ClipboardCheckIcon className="w-5 h-5 text-indigo-400" /> Tiện ích
                                         </button>
@@ -269,6 +273,9 @@ const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchCli
                      {isMenuOpen && (
                         <div className={`${menuPositionClass} w-56 rounded-xl shadow-lg overflow-hidden ${['glass-ui', 'liquid-glass'].includes(settings.theme) ? 'glass-card' : 'bg-white dark:bg-theme-darkest border border-slate-200 dark:border-slate-700'}`}>
                             <div className="py-1">
+                                <button onClick={() => { onDataStoreClick && onDataStoreClick(); setIsMenuOpen(false); }} className="flex items-center gap-3 w-full px-4 py-3 text-sm text-left text-slate-700 dark:text-slate-200 hover:bg-theme-mint/30 dark:hover:bg-theme-olive/30 transition-colors">
+                                    <DatabaseIcon className="w-5 h-5 text-theme-olive dark:text-theme-lime" /> Kho dữ liệu
+                                </button>
                                 <button onClick={() => { onTodoListClick(); setIsMenuOpen(false); }} className="flex items-center gap-3 w-full px-4 py-3 text-sm text-left text-slate-700 dark:text-slate-200 hover:bg-theme-mint/30 dark:hover:bg-theme-olive/30 transition-colors">
                                     <ClipboardCheckIcon className="w-5 h-5 text-theme-olive dark:text-theme-lime" /> Tiện ích (Widget)
                                 </button>
@@ -461,6 +468,16 @@ const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchCli
                          {isMenuOpen && (
                             <div className={`${menuPositionClass} w-64 rounded-xl shadow-lg overflow-hidden ${['glass-ui', 'liquid-glass'].includes(settings.theme) ? 'glass-card' : 'bg-white dark:bg-theme-darkest border border-slate-200 dark:border-slate-700'}`}>
                                 <div className="py-1">
+                                    <button
+                                        onClick={() => {
+                                            onDataStoreClick && onDataStoreClick();
+                                            setIsMenuOpen(false);
+                                        }}
+                                        className="flex items-center gap-3 w-full px-4 py-3 text-sm text-left text-slate-700 dark:text-slate-200 hover:bg-theme-mint/30 dark:hover:bg-theme-olive/30 transition-colors"
+                                    >
+                                        <DatabaseIcon className="w-5 h-5 text-theme-olive dark:text-theme-lime" />
+                                        Kho dữ liệu
+                                    </button>
                                     <button
                                         onClick={() => {
                                             onTodoListClick();
