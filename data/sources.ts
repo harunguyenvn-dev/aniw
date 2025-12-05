@@ -25,6 +25,14 @@ export const DATA_SOURCES: DataSource[] = [
         url: 'https://raw.githubusercontent.com/harunguyenvn-dev/data/refs/heads/main/api/animehay/data.csv',
         tags: ['Anime', 'Donghua', 'Phim']
     },
+        {
+        id: 'Ani4u',
+        name: 'Ani4u',
+        description: 'Data này có cả anime, donghua ( data nay hoi loi mot chut )',
+        author: 'harunguyen',
+        url: 'https://raw.githubusercontent.com/harunguyenvn-dev/data/refs/heads/main/api/ani4u/data.csv',
+        tags: ['Anime', 'Ani4u', 'Phim']
+    },
     {
         id: 'hentai 1',
         name: 'hentai 1',
