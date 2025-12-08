@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Anime, Episode, Settings } from '../types';
+import { Anime, Episode, Settings, DownloadTask } from '../types';
 import Notes from './Notes';
 import { BackIcon, ChevronDoubleLeftIcon, ChevronDoubleRightIcon, PlayIcon, DownloadIcon, CheckIcon } from './icons';
 
@@ -209,19 +209,25 @@ interface AnimePlayerProps {
     onClose: () => void;
     containerClassName?: string;
     allowDownload?: boolean;
+    // New props for global download management
+    downloadQueue?: DownloadTask[];
+    addToQueue?: (task: DownloadTask) => void;
 }
 
-const AnimePlayer: React.FC<AnimePlayerProps> = ({ anime, settings, onClose, containerClassName, allowDownload = false }) => {
+const AnimePlayer: React.FC<AnimePlayerProps> = ({ 
+    anime, 
+    settings, 
+    onClose, 
+    containerClassName, 
+    allowDownload = false,
+    downloadQueue = [],
+    addToQueue 
+}) => {
     const { blockNewTabs, showNotes, disablePopupPlayer, theme, showCalendar, showTodoList, showStopwatch, resizablePanes, enableHoverAnimation } = settings;
     const [currentEpisode, setCurrentEpisode] = useState<Episode>(anime.episodes[0]);
     const [isEpisodeListOpen, setIsEpisodeListOpen] = useState(true);
     const episodeListRef = useRef<HTMLUListElement>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
-    
-    // Download states
-    const [downloadingEp, setDownloadingEp] = useState<string | null>(null);
-    const [downloadProgress, setDownloadProgress] = useState<string | null>(null);
-    const [downloadSuccess, setDownloadSuccess] = useState<string | null>(null);
 
     const [listPanelWidth, setListPanelWidth] = useState(576); 
     const [utilityPanelWidth, setUtilityPanelWidth] = useState(320); 
@@ -233,98 +239,84 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({ anime, settings, onClose, con
 
     const isM3U8 = currentEpisode.link.includes('.m3u8');
 
-    // Service Worker Message Listener
-    useEffect(() => {
-        if (!('serviceWorker' in navigator)) return;
+    // Helper to request a download task
+    const requestDownload = (episode: Episode) => {
+        if (!addToQueue) return;
+        addToQueue({
+            id: episode.link,
+            animeName: anime.name,
+            episodeTitle: episode.episodeTitle,
+            episode: episode,
+            status: 'pending',
+            progress: 'Chờ...'
+        });
+    };
 
-        const handleMessage = (event: MessageEvent) => {
-            const data = event.data;
-            if (!data || !data.type) return;
-
-            if (data.type === 'DOWNLOAD_PROGRESS') {
-                const { id, progress, status } = data.payload;
-                // Only update if this component cares about this download
-                if (downloadingEp === id) {
-                    setDownloadProgress(`${status} (${progress}%)`);
-                }
-            } else if (data.type === 'DOWNLOAD_COMPLETE') {
-                const { id } = data.payload;
-                if (downloadingEp === id) {
-                    setDownloadingEp(null);
-                    setDownloadProgress(null);
-                    setDownloadSuccess(id);
-                    setTimeout(() => setDownloadSuccess(null), 3000);
-                }
-            } else if (data.type === 'DOWNLOAD_ERROR') {
-                const { id, error } = data.payload;
-                if (downloadingEp === id) {
-                    setDownloadingEp(null);
-                    setDownloadProgress(null);
-                    alert(`Lỗi tải xuống: ${error}`);
-                }
-            }
-        };
-
-        navigator.serviceWorker.addEventListener('message', handleMessage);
-        return () => navigator.serviceWorker.removeEventListener('message', handleMessage);
-    }, [downloadingEp]);
-
-    // Handle Download Logic via Service Worker
-    const handleDownload = async (episode: Episode) => {
-        if (downloadingEp) return;
-        
-        if (!('serviceWorker' in navigator)) {
-            alert('Trình duyệt không hỗ trợ Service Worker. Vui lòng sử dụng Chrome/Edge/Firefox mới nhất.');
-            return;
-        }
-
-        const messageData = {
-            type: 'DOWNLOAD_VIDEO',
-            payload: {
-                id: episode.link, // Unique ID for tracking
-                url: episode.link,
-                animeName: anime.name,
-                episodeTitle: episode.episodeTitle
-            }
-        };
-
-        const sendMessage = (registration: ServiceWorkerRegistration) => {
-            if (registration.active) {
-                setDownloadingEp(episode.link);
-                setDownloadProgress('Đang gửi lệnh...');
-                registration.active.postMessage(messageData);
-            } else {
-                 alert('Service Worker chưa sẵn sàng. Vui lòng tải lại trang.');
-            }
-        };
-
-        // If controller is available, use it directly
-        if (navigator.serviceWorker.controller) {
-             setDownloadingEp(episode.link);
-             setDownloadProgress('Đang gửi lệnh...');
-             navigator.serviceWorker.controller.postMessage(messageData);
-        } else {
-            // Otherwise wait for it to be ready (e.g. first load)
-            navigator.serviceWorker.ready.then(sendMessage).catch(err => {
-                 alert('Không thể kết nối tới Service Worker: ' + err);
+    // Download All
+    const requestDownloadAll = () => {
+        if (!addToQueue) return;
+        if (confirm(`Bạn có chắc muốn thêm ${anime.episodes.length} tập vào hàng chờ tải xuống không?`)) {
+            anime.episodes.forEach(ep => {
+                requestDownload(ep);
             });
         }
     };
 
+    // Get status of an episode
+    const getDownloadState = (episodeLink: string) => {
+        return downloadQueue.find(t => t.id === episodeLink);
+    };
+
+    // Use Hls.js for Playback Logic
     useEffect(() => {
         if (isM3U8 && videoRef.current) {
             const video = videoRef.current;
-            if (Hls.isSupported()) {
-                const hls = new Hls();
+            // @ts-ignore
+            if (window.Hls && window.Hls.isSupported()) {
+                // @ts-ignore
+                const hls = new window.Hls({
+                    debug: false,
+                    enableWorker: true,
+                    lowLatencyMode: true,
+                    backBufferLength: 90
+                });
+                
                 hls.loadSource(currentEpisode.link);
                 hls.attachMedia(video);
-                hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                
+                // @ts-ignore
+                hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
                    video.play().catch(e => console.log("Auto-play prevented", e));
                 });
+
+                // Robust Error Handling for HLS.js
+                // @ts-ignore
+                hls.on(window.Hls.Events.ERROR, function (event, data) {
+                    if (data.fatal) {
+                        switch (data.type) {
+                            // @ts-ignore
+                            case window.Hls.ErrorTypes.NETWORK_ERROR:
+                                console.log("HLS: Network error encountered, trying to recover...");
+                                hls.startLoad();
+                                break;
+                            // @ts-ignore
+                            case window.Hls.ErrorTypes.MEDIA_ERROR:
+                                console.log("HLS: Media error encountered, trying to recover...");
+                                hls.recoverMediaError();
+                                break;
+                            default:
+                                console.error("HLS: Fatal error, cannot recover");
+                                hls.destroy();
+                                break;
+                        }
+                    }
+                });
+
                 return () => {
                     hls.destroy();
                 };
             } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                // Native HLS support (Safari)
                 video.src = currentEpisode.link;
                 video.addEventListener('loadedmetadata', () => {
                    video.play().catch(e => console.log("Auto-play prevented", e));
@@ -416,13 +408,15 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({ anime, settings, onClose, con
     const renderPlayer = () => {
         if (isM3U8) {
             return (
-                <video 
-                    ref={videoRef}
-                    className="w-full h-full object-contain bg-black"
-                    controls
-                    autoPlay
-                    playsInline
-                />
+                <div className="w-full h-full bg-black relative flex items-center justify-center">
+                    <video 
+                        ref={videoRef}
+                        className="w-full h-full object-contain"
+                        controls
+                        autoPlay
+                        playsInline
+                    />
+                </div>
             );
         }
         return (
@@ -486,22 +480,35 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({ anime, settings, onClose, con
                     }`}
                 >
                     <div className="p-4 border-b border-slate-700 flex-shrink-0 flex justify-between items-center">
-                        <div>
+                        <div className="min-w-0">
                             <h3 className="text-xl font-bold text-theme-lime line-clamp-1">{anime.name}</h3>
                             <p className="text-slate-300 line-clamp-1 mt-1">{currentEpisode.episodeTitle}</p>
                         </div>
                         <button
                             onClick={() => setIsEpisodeListOpen(false)}
-                            className="text-white hover:bg-slate-700/50 p-2 rounded-full"
+                            className="text-white hover:bg-slate-700/50 p-2 rounded-full flex-shrink-0"
                             aria-label="Ẩn danh sách tập"
                         >
                             <ChevronDoubleRightIcon className="w-6 h-6" />
                         </button>
                     </div>
+                    {/* Download All Button for Popup */}
+                    {allowDownload && (
+                        <div className="px-4 py-2 border-b border-slate-700/50">
+                            <button 
+                                onClick={requestDownloadAll}
+                                className="w-full py-2 bg-theme-lime/20 hover:bg-theme-lime/40 text-theme-lime rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors"
+                            >
+                                <DownloadIcon className="w-4 h-4" /> Tải tất cả ({anime.episodes.length} tập)
+                            </button>
+                        </div>
+                    )}
 
                     <div className="flex-grow overflow-y-auto no-scrollbar">
                          <ul className="p-2 space-y-1">
-                            {anime.episodes.map((episode, index) => (
+                            {anime.episodes.map((episode, index) => {
+                                const downloadState = getDownloadState(episode.link);
+                                return (
                                 <li key={index}>
                                     <div className={`w-full flex items-center p-2 rounded-xl transition-all duration-300 group ${
                                             currentEpisode.link === episode.link
@@ -510,7 +517,7 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({ anime, settings, onClose, con
                                         }`}>
                                         <button
                                             onClick={() => setCurrentEpisode(episode)}
-                                            className="flex-grow text-left flex items-center"
+                                            className="flex-grow text-left flex items-center min-w-0"
                                         >
                                             <span className={`text-sm font-bold mr-4 ${currentEpisode.link === episode.link ? 'text-theme-lime' : 'text-slate-400 group-hover:text-slate-300'}`}>
                                                 {String(index + 1).padStart(2, '0')}
@@ -521,30 +528,25 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({ anime, settings, onClose, con
                                         </button>
                                         
                                         {allowDownload && (
-                                            <div className="relative">
+                                            <div className="relative flex-shrink-0">
                                                 <button 
-                                                    onClick={(e) => { e.stopPropagation(); handleDownload(episode); }}
+                                                    onClick={(e) => { e.stopPropagation(); requestDownload(episode); }}
                                                     className="ml-2 p-2 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
-                                                    title={downloadingEp === episode.link ? "Đang tải trong nền..." : "Tải video này"}
+                                                    disabled={!!downloadState}
                                                 >
-                                                    {downloadSuccess === episode.link ? (
+                                                    {downloadState?.status === 'completed' ? (
                                                         <CheckIcon className="w-5 h-5 text-green-400" />
-                                                    ) : downloadingEp === episode.link ? (
+                                                    ) : downloadState?.status === 'downloading' || downloadState?.status === 'pending' ? (
                                                         <div className="w-5 h-5 border-2 border-theme-lime border-t-transparent rounded-full animate-spin"></div>
                                                     ) : (
                                                         <DownloadIcon className="w-5 h-5" />
                                                     )}
                                                 </button>
-                                                {downloadingEp === episode.link && downloadProgress && (
-                                                    <span className="absolute -top-8 right-0 whitespace-nowrap bg-black/80 text-white text-[10px] px-2 py-1 rounded">
-                                                        {downloadProgress}
-                                                    </span>
-                                                )}
                                             </div>
                                         )}
                                     </div>
                                 </li>
-                            ))}
+                            )})}
                         </ul>
                     </div>
                 </div>
@@ -574,14 +576,27 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({ anime, settings, onClose, con
                     className={`flex-shrink-0 w-full md:w-auto h-1/3 md:h-full rounded-2xl flex flex-col ${!resizablePanes ? 'md:w-[36rem]' : ''}`}
                 >
                     <div className="flex-shrink-0 p-4 border-b border-slate-300/50 dark:border-slate-700/50 flex justify-between items-center">
-                        <h3 className={`text-xl font-bold ${['glass-ui', 'liquid-glass'].includes(theme) ? '' : 'text-theme-lime'}`}>Danh sách tập</h3>
+                        <div className="flex items-center gap-3">
+                            <h3 className={`text-xl font-bold ${['glass-ui', 'liquid-glass'].includes(theme) ? '' : 'text-theme-lime'}`}>Danh sách tập</h3>
+                            {allowDownload && (
+                                <button 
+                                    onClick={requestDownloadAll}
+                                    className="bg-theme-lime/20 hover:bg-theme-lime/40 text-theme-darkest dark:text-theme-lime px-3 py-1 rounded-lg text-xs font-bold transition-colors flex items-center gap-1"
+                                    title="Tải tất cả các tập"
+                                >
+                                    <DownloadIcon className="w-3 h-3" /> Tải tất cả
+                                </button>
+                            )}
+                        </div>
                         <button onClick={onClose} className="p-1.5 rounded-full hover:bg-slate-500/20 transition-colors" aria-label="Trở về trang chủ">
                             <BackIcon className="w-6 h-6" />
                         </button>
                     </div>
                     <div className="flex-grow overflow-y-auto p-1 sm:p-2 no-scrollbar">
                         <ul ref={episodeListRef} className="space-y-1">
-                            {anime.episodes.map((episode, index) => (
+                            {anime.episodes.map((episode, index) => {
+                                const downloadState = getDownloadState(episode.link);
+                                return (
                                 <li key={index} data-episode-link={episode.link}>
                                     <div className={`w-full flex items-center p-3 rounded-xl transition-all duration-300 group ${
                                             currentEpisode.link === episode.link
@@ -590,7 +605,7 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({ anime, settings, onClose, con
                                         } ${hoverEffectClass}`}>
                                         <button
                                             onClick={() => setCurrentEpisode(episode)}
-                                            className="flex-grow text-left flex items-center"
+                                            className="flex-grow text-left flex items-center min-w-0"
                                         >
                                             <span className={`text-sm font-bold mr-4 ${currentEpisode.link === episode.link ? 'text-theme-lime' : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-500 dark:group-hover:text-slate-400'}`}>
                                                 {String(index + 1).padStart(2, '0')}
@@ -603,30 +618,25 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({ anime, settings, onClose, con
                                         </button>
                                         
                                         {allowDownload && (
-                                            <div className="relative">
+                                            <div className="relative flex-shrink-0">
                                                 <button 
-                                                    onClick={(e) => { e.stopPropagation(); handleDownload(episode); }}
+                                                    onClick={(e) => { e.stopPropagation(); requestDownload(episode); }}
                                                     className="ml-2 p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-slate-400 hover:text-theme-lime transition-colors"
-                                                    title={downloadingEp === episode.link ? "Đang tải trong nền..." : "Tải video này"}
+                                                    disabled={!!downloadState}
                                                 >
-                                                    {downloadSuccess === episode.link ? (
+                                                    {downloadState?.status === 'completed' ? (
                                                         <CheckIcon className="w-5 h-5 text-green-500" />
-                                                    ) : downloadingEp === episode.link ? (
+                                                    ) : downloadState?.status === 'downloading' || downloadState?.status === 'pending' ? (
                                                         <div className="w-5 h-5 border-2 border-theme-lime border-t-transparent rounded-full animate-spin"></div>
                                                     ) : (
                                                         <DownloadIcon className="w-5 h-5" />
                                                     )}
                                                 </button>
-                                                 {downloadingEp === episode.link && downloadProgress && (
-                                                    <div className="absolute top-10 right-0 z-50 bg-black/90 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap shadow-lg">
-                                                        {downloadProgress}
-                                                    </div>
-                                                )}
                                             </div>
                                         )}
                                     </div>
                                 </li>
-                            ))}
+                            )})}
                         </ul>
                     </div>
                 </div>
