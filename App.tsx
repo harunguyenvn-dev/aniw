@@ -21,6 +21,9 @@ import DataStoreModal from './components/DataStoreModal';
 import { Anime, Episode, Settings, View } from './types';
 
 const ANIME_CSV_URL = 'https://raw.githubusercontent.com/harunguyenvn-dev/data/refs/heads/main/anime.csv';
+// Dùng API OPhim
+const OPHIM_LIST_API = 'https://ophim1.com/danh-sach/phim-moi-cap-nhat?page=1';
+const OPHIM_DETAIL_API_BASE = 'https://ophim1.com/phim/';
 
 const FALLBACK_DATA: Anime[] = [
   {
@@ -280,7 +283,7 @@ const App: React.FC = () => {
     }, [settings]);
 
     useEffect(() => {
-        const fetchAndParseData = (url: string): Promise<Anime[]> => {
+        const fetchAndParseCSV = (url: string): Promise<Anime[]> => {
             return new Promise(async (resolve, reject) => {
                 try {
                     // @ts-ignore
@@ -290,11 +293,9 @@ const App: React.FC = () => {
                     }
                     const response = await fetch(url);
                     if (!response.ok) {
-                         // If custom URL fails, don't throw immediately to allow fallback logic in loadData
                          if (url !== ANIME_CSV_URL) {
                              throw new Error(`Custom URL failed with status: ${response.status}`);
                          }
-                         // If default URL fails, maybe network issue, try fallback
                          throw new Error(`Network response was not ok for default URL. Status: ${response.status}`);
                     }
                     const csvText = await response.text();
@@ -335,6 +336,60 @@ const App: React.FC = () => {
             });
         };
 
+        // Hàm xử lý dữ liệu API OPhim
+        const fetchOPhimData = async (): Promise<Anime[]> => {
+            try {
+                // 1. Fetch danh sách phim mới
+                const listResponse = await fetch(OPHIM_LIST_API);
+                if (!listResponse.ok) throw new Error("Không thể kết nối đến OPhim");
+                const listData = await listResponse.json();
+                
+                // 2. Vì API list không có link tập, ta cần fetch detail cho từng phim
+                // Giới hạn fetch detail cho 12 phim đầu tiên để tránh chậm app
+                const itemsToFetch = listData.items.slice(0, 12);
+                
+                const detailPromises = itemsToFetch.map((item: any) => 
+                    fetch(`${OPHIM_DETAIL_API_BASE}${item.slug}`)
+                        .then(res => res.json())
+                        .catch(err => {
+                            console.error(`Failed to fetch detail for ${item.slug}`, err);
+                            return null;
+                        })
+                );
+
+                const detailsResults = await Promise.all(detailPromises);
+                
+                const animeArray: Anime[] = [];
+
+                detailsResults.forEach((data: any) => {
+                    if (!data || !data.movie || !data.episodes) return;
+                    
+                    const movie = data.movie;
+                    const episodesData = data.episodes[0]?.server_data || []; // Lấy server đầu tiên
+
+                    // Map sang cấu trúc Episode của app
+                    const mappedEpisodes: Episode[] = episodesData.map((ep: any) => ({
+                        name: movie.name,
+                        episodeTitle: `Tập ${ep.name}`,
+                        url: '', // Không cần
+                        link: ep.link_m3u8 || ep.link_embed // Ưu tiên m3u8
+                    }));
+
+                    if (mappedEpisodes.length > 0) {
+                        animeArray.push({
+                            name: movie.name,
+                            episodes: mappedEpisodes
+                        });
+                    }
+                });
+
+                return animeArray;
+            } catch (error: any) {
+                console.error("OPhim API Error:", error);
+                throw new Error(`Lỗi tải dữ liệu từ OPhim: ${error.message}`);
+            }
+        };
+
         const loadData = async () => {
             setLoading(true);
             setError(null);
@@ -349,14 +404,19 @@ const App: React.FC = () => {
                     return 1;
                 };
 
-                const sortedAnime = [...data].sort((a, b) => {
-                    const tierA = getTier(a.episodes.length);
-                    const tierB = getTier(b.episodes.length);
-                    if (tierA !== tierB) {
-                        return tierB - tierA;
-                    }
-                    return b.episodes.length - a.episodes.length;
-                });
+                // Nếu dùng OPhim thì giữ nguyên thứ tự (vì là phim mới cập nhật)
+                // Nếu dùng CSV thì sort
+                let sortedAnime = data;
+                if (!settings.customAnimeDataUrl || settings.customAnimeDataUrl !== 'OPHIM_API') {
+                    sortedAnime = [...data].sort((a, b) => {
+                        const tierA = getTier(a.episodes.length);
+                        const tierB = getTier(b.episodes.length);
+                        if (tierA !== tierB) {
+                            return tierB - tierA;
+                        }
+                        return b.episodes.length - a.episodes.length;
+                    });
+                }
 
                 setRecommendedAnime(sortedAnime);
                 setAnimeList(data);
@@ -366,13 +426,19 @@ const App: React.FC = () => {
             const urlToTry = settings.customAnimeDataUrl || ANIME_CSV_URL;
 
             try {
-                const data = await fetchAndParseData(urlToTry);
+                let data: Anime[];
+                if (urlToTry === 'OPHIM_API') {
+                     data = await fetchOPhimData();
+                } else {
+                     data = await fetchAndParseCSV(urlToTry);
+                }
                 processData(data);
             } catch (e: any) {
                  console.error("Primary fetch failed:", e);
                 if (settings.customAnimeDataUrl) {
                     try {
-                        const data = await fetchAndParseData(ANIME_CSV_URL);
+                        // Fallback về default CSV nếu custom/API lỗi
+                        const data = await fetchAndParseCSV(ANIME_CSV_URL);
                         processData(data);
                         setError(null); 
                     } catch (e2: any) {
