@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Header from './components/Header';
 import DonateModal from './components/SubscriptionModal';
@@ -21,9 +20,12 @@ import DataStoreModal from './components/DataStoreModal';
 import { Anime, Episode, Settings, View } from './types';
 
 const ANIME_CSV_URL = 'https://raw.githubusercontent.com/harunguyenvn-dev/data/refs/heads/main/anime.csv';
-// Dùng API OPhim
-const OPHIM_LIST_API = 'https://ophim1.com/danh-sach/phim-moi-cap-nhat?page=1';
+
+const OPHIM_LIST_API_BASE = 'https://ophim1.com/danh-sach/phim-moi-cap-nhat';
 const OPHIM_DETAIL_API_BASE = 'https://ophim1.com/phim/';
+
+const OPHIM_PAGE_DEPTH = 50; 
+const CACHE_DURATION = 24 * 60 * 60 * 1000;
 
 const FALLBACK_DATA: Anime[] = [
   {
@@ -53,17 +55,19 @@ const App: React.FC = () => {
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isCssEditorOpen, setIsCssEditorOpen] = useState(false);
     const [isStoreOpen, setIsStoreOpen] = useState(false); 
-    const [isDataStoreOpen, setIsDataStoreOpen] = useState(false); // New state for Data Store
+    const [isDataStoreOpen, setIsDataStoreOpen] = useState(false);
     
     const [animeList, setAnimeList] = useState<Anime[]>([]);
     const [recommendedAnime, setRecommendedAnime] = useState<Anime[]>([]);
     const [selectedAnime, setSelectedAnime] = useState<Anime | null>(null);
     const [loading, setLoading] = useState(true);
+    const [loadingStatus, setLoadingStatus] = useState("đang chuẩn bị...");
+    const [isBackgroundFetching, setIsBackgroundFetching] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [view, setView] = useState<View>('home');
     const audioRef = useRef<HTMLAudioElement | null>(null);
     
-    // Liked Images State
+
     const [likedImages, setLikedImages] = useState<string[]>(() => {
         try {
             const saved = localStorage.getItem('likedImages');
@@ -73,7 +77,7 @@ const App: React.FC = () => {
         }
     });
 
-    // PWA Install Prompt Handler
+
     useEffect(() => {
         const handler = (e: any) => {
             e.preventDefault();
@@ -182,16 +186,14 @@ const App: React.FC = () => {
         const firstVisit = localStorage.getItem(firstVisitKey);
         
         if (!firstVisit) {
-            // First time user, save timestamp
             localStorage.setItem(firstVisitKey, Date.now().toString());
         } else {
-            // Returning user
             const hasShown = localStorage.getItem(hasShownDonateKey);
             
             if (!hasShown) {
                 const now = Date.now();
                 const firstVisitTime = parseInt(firstVisit, 10);
-                const oneDay = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+                const oneDay = 24 * 60 * 60 * 1000;
                 
                 if (now - firstVisitTime > oneDay) {
                     setIsDonateModalOpen(true);
@@ -202,11 +204,11 @@ const App: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        // This effect runs only once on mount to create the audio object
+
         audioRef.current = new Audio();
-        audioRef.current.volume = 0.5; // Set a reasonable volume
+        audioRef.current.volume = 0.5;
         return () => {
-            // Cleanup on unmount
+
             if (audioRef.current) {
                 audioRef.current.pause();
                 audioRef.current = null;
@@ -241,7 +243,6 @@ const App: React.FC = () => {
         }
     }, [settings.theme, settings.customThemeColors]);
 
-    // Inject Custom CSS
     useEffect(() => {
         const styleId = 'user-custom-css';
         let styleElement = document.getElementById(styleId);
@@ -283,7 +284,33 @@ const App: React.FC = () => {
     }, [settings]);
 
     useEffect(() => {
+        const processData = (data: Anime[]) => {
+            const getTier = (episodeCount: number) => {
+                if (episodeCount > 100) return 4;
+                if (episodeCount >= 24) return 3;
+                if (episodeCount >= 12) return 2;
+                return 1;
+            };
+
+            let sortedAnime = data;
+            if (!settings.customAnimeDataUrl || settings.customAnimeDataUrl !== 'OPHIM_API') {
+                sortedAnime = [...data].sort((a, b) => {
+                    const tierA = getTier(a.episodes.length);
+                    const tierB = getTier(b.episodes.length);
+                    if (tierA !== tierB) {
+                        return tierB - tierA;
+                    }
+                    return b.episodes.length - a.episodes.length;
+                });
+            }
+
+            setRecommendedAnime(sortedAnime);
+            setAnimeList(data);
+            setLoading(false);
+        };
+
         const fetchAndParseCSV = (url: string): Promise<Anime[]> => {
+            setLoadingStatus("Đang đọc dữ liệu...");
             return new Promise(async (resolve, reject) => {
                 try {
                     // @ts-ignore
@@ -336,57 +363,101 @@ const App: React.FC = () => {
             });
         };
 
-        // Hàm xử lý dữ liệu API OPhim
-        const fetchOPhimData = async (): Promise<Anime[]> => {
+        const runOPhimCrawler = async (isUpdateMode: boolean) => {
             try {
-                // 1. Fetch danh sách phim mới
-                const listResponse = await fetch(OPHIM_LIST_API);
-                if (!listResponse.ok) throw new Error("Không thể kết nối đến OPhim");
-                const listData = await listResponse.json();
+                setIsBackgroundFetching(true);
+                setLoadingStatus("Đang kết nối OPhim...");
                 
-                // 2. Vì API list không có link tập, ta cần fetch detail cho từng phim
-                // Giới hạn fetch detail cho 12 phim đầu tiên để tránh chậm app
-                const itemsToFetch = listData.items.slice(0, 12);
+                const collectedAnime: Anime[] = [];
+                let currentPage = 1;
                 
-                const detailPromises = itemsToFetch.map((item: any) => 
-                    fetch(`${OPHIM_DETAIL_API_BASE}${item.slug}`)
-                        .then(res => res.json())
-                        .catch(err => {
-                            console.error(`Failed to fetch detail for ${item.slug}`, err);
-                            return null;
-                        })
-                );
+                while (currentPage <= OPHIM_PAGE_DEPTH) {
+                    try {
+                        if (isUpdateMode) {
+                            setLoadingStatus(`Đang âm thầm tải trang ${currentPage}...`);
+                        } else {
+                            setLoadingStatus(`Đang tải dữ liệu trang ${currentPage}...`);
+                        }
 
-                const detailsResults = await Promise.all(detailPromises);
-                
-                const animeArray: Anime[] = [];
+                        const listResponse = await fetch(`${OPHIM_LIST_API_BASE}?page=${currentPage}`);
+                        if (!listResponse.ok) throw new Error(`Failed to fetch page ${currentPage}`);
+                        
+                        const listData = await listResponse.json();
+                        const items = listData.items || [];
+                        
+                        if (items.length === 0) break;
 
-                detailsResults.forEach((data: any) => {
-                    if (!data || !data.movie || !data.episodes) return;
-                    
-                    const movie = data.movie;
-                    const episodesData = data.episodes[0]?.server_data || []; // Lấy server đầu tiên
+                        const pageAnime: Anime[] = [];
 
-                    // Map sang cấu trúc Episode của app
-                    const mappedEpisodes: Episode[] = episodesData.map((ep: any) => ({
-                        name: movie.name,
-                        episodeTitle: `Tập ${ep.name}`,
-                        url: '', // Không cần
-                        link: ep.link_m3u8 || ep.link_embed // Ưu tiên m3u8
-                    }));
+                        for (const item of items) {
+                            try {
+                                const detailResponse = await fetch(`${OPHIM_DETAIL_API_BASE}${item.slug}`);
+                                if (detailResponse.ok) {
+                                    const detailData = await detailResponse.json();
+                                    const movie = detailData.movie;
+                                    const episodesData = detailData.episodes[0]?.server_data || [];
+                                    
+                                    const mappedEpisodes: Episode[] = episodesData.map((ep: any) => ({
+                                        name: movie.name,
+                                        episodeTitle: `Tập ${ep.name}`,
+                                        url: '',
+                                        link: ep.link_m3u8 || ep.link_embed
+                                    }));
 
-                    if (mappedEpisodes.length > 0) {
-                        animeArray.push({
-                            name: movie.name,
-                            episodes: mappedEpisodes
-                        });
+                                    if (mappedEpisodes.length > 0) {
+                                        pageAnime.push({
+                                            name: movie.name,
+                                            episodes: mappedEpisodes
+                                        });
+                                    }
+                                }
+                            } catch (err) {
+                                console.warn(`Error fetching detail for ${item.slug}`, err);
+                            }
+                        }
+                        
+                        if (isUpdateMode) {
+                            collectedAnime.push(...pageAnime);
+                        } else {
+                            setAnimeList(prev => {
+                                const newData = [...prev, ...pageAnime];
+                                processData(newData);
+                                return newData;
+                            });
+                        }
+                        
+                        currentPage++;
+                        await new Promise(resolve => setTimeout(resolve, 50)); 
+                    } catch (err) {
+                        console.error(`Error processing page ${currentPage}`, err);
+                        currentPage++; 
                     }
-                });
+                }
+                
+                if (isUpdateMode && collectedAnime.length > 0) {
+                    setAnimeList(collectedAnime);
+                    processData(collectedAnime);
+                }
 
-                return animeArray;
+                if (!isUpdateMode) {
+                    const finalData = await new Promise<Anime[]>(resolve => {
+                        setAnimeList(current => {
+                            resolve(current);
+                            return current;
+                        });
+                    });
+                    localStorage.setItem('ophim_cache', JSON.stringify(finalData));
+                } else {
+                    localStorage.setItem('ophim_cache', JSON.stringify(collectedAnime));
+                }
+                
+                localStorage.setItem('ophim_timestamp', Date.now().toString());
+                setIsBackgroundFetching(false);
+                setLoadingStatus("");
+                
             } catch (error: any) {
-                console.error("OPhim API Error:", error);
-                throw new Error(`Lỗi tải dữ liệu từ OPhim: ${error.message}`);
+                console.error("Crawler Error:", error);
+                setIsBackgroundFetching(false);
             }
         };
 
@@ -396,58 +467,53 @@ const App: React.FC = () => {
             setSelectedAnime(null);
             setView('home');
 
-            const processData = (data: Anime[]) => {
-                const getTier = (episodeCount: number) => {
-                    if (episodeCount > 100) return 4;
-                    if (episodeCount >= 24) return 3;
-                    if (episodeCount >= 12) return 2;
-                    return 1;
-                };
-
-                // Nếu dùng OPhim thì giữ nguyên thứ tự (vì là phim mới cập nhật)
-                // Nếu dùng CSV thì sort
-                let sortedAnime = data;
-                if (!settings.customAnimeDataUrl || settings.customAnimeDataUrl !== 'OPHIM_API') {
-                    sortedAnime = [...data].sort((a, b) => {
-                        const tierA = getTier(a.episodes.length);
-                        const tierB = getTier(b.episodes.length);
-                        if (tierA !== tierB) {
-                            return tierB - tierA;
-                        }
-                        return b.episodes.length - a.episodes.length;
-                    });
-                }
-
-                setRecommendedAnime(sortedAnime);
-                setAnimeList(data);
-                setLoading(false);
-            };
-
             const urlToTry = settings.customAnimeDataUrl || ANIME_CSV_URL;
 
-            try {
-                let data: Anime[];
-                if (urlToTry === 'OPHIM_API') {
-                     data = await fetchOPhimData();
-                } else {
-                     data = await fetchAndParseCSV(urlToTry);
-                }
-                processData(data);
-            } catch (e: any) {
-                 console.error("Primary fetch failed:", e);
-                if (settings.customAnimeDataUrl) {
+            if (urlToTry === 'OPHIM_API') {
+                const cachedData = localStorage.getItem('ophim_cache');
+                const cachedTime = localStorage.getItem('ophim_timestamp');
+                let hasCache = false;
+
+                if (cachedData) {
                     try {
-                        // Fallback về default CSV nếu custom/API lỗi
-                        const data = await fetchAndParseCSV(ANIME_CSV_URL);
-                        processData(data);
-                        setError(null); 
-                    } catch (e2: any) {
-                         console.error("Default fetch failed:", e2);
-                         processData(FALLBACK_DATA);
+                        const parsedCache = JSON.parse(cachedData);
+                        if (parsedCache.length > 0) {
+                            processData(parsedCache);
+                            hasCache = true;
+                        }
+                    } catch (e) {
+                        console.error("Cache parsing error", e);
+                    }
+                }
+
+                const now = Date.now();
+                const isExpired = !cachedTime || (now - parseInt(cachedTime) > CACHE_DURATION);
+
+                if (hasCache) {
+                    if (isExpired) {
+                        runOPhimCrawler(true);
+                    } else {
+                        setLoading(false);
                     }
                 } else {
-                     console.warn("Using fallback data due to error:", e);
-                     processData(FALLBACK_DATA);
+                    runOPhimCrawler(false);
+                }
+            } else {
+                try {
+                    const data = await fetchAndParseCSV(urlToTry);
+                    processData(data);
+                } catch (e: any) {
+                    if (settings.customAnimeDataUrl) {
+                        try {
+                            const data = await fetchAndParseCSV(ANIME_CSV_URL);
+                            processData(data);
+                            setError(null);
+                        } catch (e2) {
+                            processData(FALLBACK_DATA);
+                        }
+                    } else {
+                        processData(FALLBACK_DATA);
+                    }
                 }
             }
         };
@@ -512,7 +578,6 @@ const App: React.FC = () => {
         }
 
         const getHomePadding = () => {
-            // If using curved sidebar or focus-ui, handle positions
             if (settings.headerStyle === 'sidebar-curved') {
                 if (settings.headerPosition === 'left') return 'pl-20 p-4';
                 if (settings.headerPosition === 'right') return 'pr-20 p-4';
@@ -521,7 +586,7 @@ const App: React.FC = () => {
             }
             if (settings.headerStyle === 'focus-ui') {
                  if (settings.headerPosition === 'top') return 'pt-24 p-4';
-                 return 'pb-24 p-4'; // Default bottom
+                 return 'pb-24 p-4';
             }
 
             switch (settings.headerPosition) {
@@ -533,7 +598,6 @@ const App: React.FC = () => {
             }
         };
 
-        // Adjust container padding for styles
         let containerClass = '';
         let playerContainerClass = '';
 
@@ -586,8 +650,10 @@ const App: React.FC = () => {
 
         if (loading) {
             return (
-                 <div className="flex justify-center items-center h-screen">
-                    <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-theme-lime"></div>
+                 <div className="flex justify-center items-center h-screen flex-col gap-4">
+                    <div className="animate-spin rounded-full h-24 w-24 border-t-4 border-b-4 border-theme-lime"></div>
+                    <p className="text-theme-darkest dark:text-theme-lightest font-bold animate-pulse text-lg">{loadingStatus}</p>
+                    <p className="text-sm opacity-70">Đang tải dữ liệu...</p>
                 </div>
             );
         }
@@ -650,7 +716,7 @@ const App: React.FC = () => {
                     onRelaxationClick={() => handleViewChange('relaxation')}
                     onTodoListClick={() => handleViewChange('todo-list')}
                     onStoreClick={() => setIsStoreOpen(true)}
-                    onDataStoreClick={() => setIsDataStoreOpen(true)} // Handle click
+                    onDataStoreClick={() => setIsDataStoreOpen(true)}
                     installApp={handleInstallApp}
                     settings={settings}
                     view={view}
@@ -665,6 +731,8 @@ const App: React.FC = () => {
                 animeList={animeList} 
                 onSelectAnime={handleSelectAnime}
                 settings={settings}
+                isBackgroundFetching={isBackgroundFetching}
+                backgroundStatus={loadingStatus}
             />
             <SettingsModal
                 isOpen={isSettingsOpen}
