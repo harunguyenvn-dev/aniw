@@ -9,8 +9,9 @@ const ASSETS_TO_CACHE = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
+      // Sử dụng addAll nhưng bắt lỗi để không làm hỏng toàn bộ quá trình install nếu 1 file lỗi
       return cache.addAll(ASSETS_TO_CACHE).catch((err) => {
-        console.error('Failed to cache assets during install:', err);
+        console.warn('Failed to cache assets during install:', err);
       });
     })
   );
@@ -34,6 +35,9 @@ self.addEventListener('activate', (event) => {
 
 // Fetch event: Network first, fall back to cache for navigation
 self.addEventListener('fetch', (event) => {
+  // Chỉ cache GET request
+  if (event.request.method !== 'GET') return;
+
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request).catch(() => {
@@ -43,9 +47,10 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Đối với các request khác, thử cache trước nếu có
   event.respondWith(
-    fetch(event.request).catch(() => {
-      return caches.match(event.request);
+    caches.match(event.request).then((response) => {
+      return response || fetch(event.request);
     })
   );
 });
@@ -82,32 +87,34 @@ const saveVideoToDB = async (videoData) => {
 self.addEventListener('message', async (event) => {
     if (event.data && event.data.type === 'DOWNLOAD_VIDEO') {
         const { url, animeName, episodeTitle, id } = event.data.payload;
-        const clientId = event.source.id;
+        // Kiểm tra xem source có tồn tại không trước khi gửi tin nhắn
+        const clientId = event.source ? event.source.id : null;
+
+        const sendMessageToClient = (message) => {
+             if (!clientId) return;
+             self.clients.get(clientId).then(client => {
+                if (client) client.postMessage(message);
+            });
+        };
 
         const sendProgress = (progress, status) => {
-            self.clients.get(clientId).then(client => {
-                if (client) client.postMessage({
-                    type: 'DOWNLOAD_PROGRESS',
-                    payload: { id, progress, status }
-                });
+            sendMessageToClient({
+                type: 'DOWNLOAD_PROGRESS',
+                payload: { id, progress, status }
             });
         };
 
         const sendSuccess = () => {
-             self.clients.get(clientId).then(client => {
-                if (client) client.postMessage({
-                    type: 'DOWNLOAD_COMPLETE',
-                    payload: { id }
-                });
+             sendMessageToClient({
+                type: 'DOWNLOAD_COMPLETE',
+                payload: { id }
             });
         };
         
         const sendError = (errorMsg) => {
-             self.clients.get(clientId).then(client => {
-                if (client) client.postMessage({
-                    type: 'DOWNLOAD_ERROR',
-                    payload: { id, error: errorMsg }
-                });
+             sendMessageToClient({
+                type: 'DOWNLOAD_ERROR',
+                payload: { id, error: errorMsg }
             });
         };
 
