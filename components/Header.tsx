@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { HomeIcon, SearchIcon, SettingsIcon, BookOpenIcon, TrophyIcon, CalendarDaysIcon, WaifuIcon, QRCodeIcon, HeartIcon, CodeBracketSquareIcon, ShuffleIcon, SparklesIcon, ClipboardCheckIcon, ShoppingBagIcon, DatabaseIcon } from './icons';
+import { HomeIcon, SearchIcon, SettingsIcon, BookOpenIcon, TrophyIcon, CalendarDaysIcon, WaifuIcon, QRCodeIcon, HeartIcon, CodeBracketSquareIcon, ShuffleIcon, SparklesIcon, ClipboardCheckIcon, ShoppingBagIcon, DatabaseIcon, DownloadIcon } from './icons';
 import { Settings, View } from '../types';
 
 interface HeaderProps {
@@ -18,7 +18,8 @@ interface HeaderProps {
     onRelaxationClick: () => void;
     onTodoListClick: () => void;
     onStoreClick?: () => void; 
-    onDataStoreClick?: () => void; // New prop
+    onDataStoreClick?: () => void;
+    onOfflineClick?: () => void;
     installApp: () => void;
     settings: Settings;
     view: View;
@@ -37,7 +38,7 @@ const Tooltip: React.FC<{ text: string; position: 'top' | 'bottom' | 'left' | 'r
     return <span className={tooltipClasses}>{text}</span>;
 };
 
-const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchClick, onGlossaryClick, onRankingClick, onScheduleClick, onMusicClick, onSettingsClick, onLikedImagesClick, onCssEditorClick, onRandomClick, onRelaxationClick, onTodoListClick, onStoreClick, onDataStoreClick, installApp, settings, view }) => {
+const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchClick, onGlossaryClick, onRankingClick, onScheduleClick, onMusicClick, onSettingsClick, onLikedImagesClick, onCssEditorClick, onRandomClick, onRelaxationClick, onTodoListClick, onStoreClick, onDataStoreClick, onOfflineClick, installApp, settings, view }) => {
     const [time, setTime] = useState('');
     const [avatarError, setAvatarError] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -67,11 +68,8 @@ const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchCli
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // ============================================================================
-    // RENDER FOR FOCUS UI (Purple Gradient Pill) - The new requested theme
-    // ============================================================================
     if (settings.headerStyle === 'focus-ui') {
-        const pos = settings.headerPosition === 'top' ? 'top-6' : 'bottom-6'; // Only top or bottom makes sense
+        const pos = settings.headerPosition === 'top' ? 'top-6' : 'bottom-6'; 
         const menuItems = [
             { id: 'home', icon: HomeIcon, onClick: onHomeClick, label: 'Trang chủ' },
             { id: 'search', icon: SearchIcon, onClick: onSearchClick, label: 'Tìm kiếm' },
@@ -84,16 +82,13 @@ const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchCli
                 <nav className="relative flex items-center gap-1 px-2 py-2 rounded-full shadow-[0_10px_40px_-10px_rgba(76,29,149,0.5)] border border-white/10 backdrop-blur-2xl transition-all duration-300 hover:scale-[1.02]"
                      style={{ background: 'linear-gradient(90deg, rgba(46,16,101,0.85) 0%, rgba(30,58,138,0.85) 100%)' }}>
                     
-                    {/* Logo / Focus Indicator */}
                     <div className="pl-2 pr-4 flex items-center gap-3 border-r border-white/10 mr-1">
                          <div className="w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center text-indigo-900 shrink-0">
-                             {/* Moon Icon mimicking the image */}
                              <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
                          </div>
                          <span className="text-white font-bold text-lg tracking-wide hidden sm:block">Focus</span>
                     </div>
 
-                    {/* Main Nav Items */}
                     <div className="flex items-center gap-1">
                         {menuItems.map((item) => {
                             const isActive = view === item.id;
@@ -105,21 +100,17 @@ const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchCli
                                 >
                                     <item.icon className="w-6 h-6" />
                                     <span className="sr-only">{item.label}</span>
-                                    {/* Dot indicator for active */}
                                     {isActive && <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-white rounded-full opacity-50"></span>}
                                 </button>
                             );
                         })}
                     </div>
 
-                    {/* Right Side / User */}
                     <div className="flex items-center gap-1 pl-2 ml-1 border-l border-white/10">
-                        {/* Settings Button (Small) */}
                          <button onClick={onSettingsClick} className="p-2 text-white/50 hover:text-white transition-colors rounded-full hover:bg-white/5">
                             <SettingsIcon className="w-5 h-5" />
                         </button>
 
-                        {/* Avatar Menu */}
                         <div className="relative" ref={menuRef}>
                             <button 
                                 onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -135,6 +126,9 @@ const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchCli
                             {isMenuOpen && (
                                 <div className={`absolute ${pos === 'top-6' ? 'top-full mt-4' : 'bottom-full mb-4'} right-0 w-60 rounded-2xl bg-[#1a1a2e]/95 backdrop-blur-xl border border-white/10 shadow-2xl overflow-hidden text-white animate-in fade-in zoom-in-95 duration-200 origin-bottom-right`}>
                                     <div className="p-2 space-y-1">
+                                        <button onClick={() => { onOfflineClick && onOfflineClick(); setIsMenuOpen(false); }} className="flex items-center gap-3 w-full px-4 py-3 text-sm rounded-xl hover:bg-white/10 transition-colors">
+                                            <DownloadIcon className="w-5 h-5 text-teal-400" /> Video đã tải (Offline)
+                                        </button>
                                          <button onClick={() => { onDataStoreClick && onDataStoreClick(); setIsMenuOpen(false); }} className="flex items-center gap-3 w-full px-4 py-3 text-sm rounded-xl hover:bg-white/10 transition-colors">
                                             <DatabaseIcon className="w-5 h-5 text-indigo-300" /> Kho dữ liệu
                                         </button>
@@ -163,9 +157,6 @@ const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchCli
         );
     }
 
-    // ============================================================================
-    // RENDER FOR CURVED SIDEBAR STYLE
-    // ============================================================================
     if (settings.headerStyle === 'sidebar-curved') {
         const pos = settings.headerPosition;
         const sidebarBg = ['glass-ui', 'liquid-glass'].includes(settings.theme) ? 'glass-card' : 'bg-white dark:bg-theme-darkest shadow-xl';
@@ -273,6 +264,9 @@ const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchCli
                      {isMenuOpen && (
                         <div className={`${menuPositionClass} w-56 rounded-xl shadow-lg overflow-hidden ${['glass-ui', 'liquid-glass'].includes(settings.theme) ? 'glass-card' : 'bg-white dark:bg-theme-darkest border border-slate-200 dark:border-slate-700'}`}>
                             <div className="py-1">
+                                <button onClick={() => { onOfflineClick && onOfflineClick(); setIsMenuOpen(false); }} className="flex items-center gap-3 w-full px-4 py-3 text-sm text-left text-slate-700 dark:text-slate-200 hover:bg-theme-mint/30 dark:hover:bg-theme-olive/30 transition-colors">
+                                    <DownloadIcon className="w-5 h-5 text-theme-olive dark:text-theme-lime" /> Video đã tải
+                                </button>
                                 <button onClick={() => { onDataStoreClick && onDataStoreClick(); setIsMenuOpen(false); }} className="flex items-center gap-3 w-full px-4 py-3 text-sm text-left text-slate-700 dark:text-slate-200 hover:bg-theme-mint/30 dark:hover:bg-theme-olive/30 transition-colors">
                                     <DatabaseIcon className="w-5 h-5 text-theme-olive dark:text-theme-lime" /> Kho dữ liệu
                                 </button>
@@ -324,10 +318,6 @@ const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchCli
         );
     }
 
-
-    // ============================================================================
-    // RENDER FOR CLASSIC STYLE (Default)
-    // ============================================================================
     const positionStyles = {
         top: {
             header: 'fixed top-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-lg md:max-w-2xl lg:max-w-4xl',
@@ -468,6 +458,16 @@ const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchCli
                          {isMenuOpen && (
                             <div className={`${menuPositionClass} w-64 rounded-xl shadow-lg overflow-hidden ${['glass-ui', 'liquid-glass'].includes(settings.theme) ? 'glass-card' : 'bg-white dark:bg-theme-darkest border border-slate-200 dark:border-slate-700'}`}>
                                 <div className="py-1">
+                                    <button
+                                        onClick={() => {
+                                            onOfflineClick && onOfflineClick();
+                                            setIsMenuOpen(false);
+                                        }}
+                                        className="flex items-center gap-3 w-full px-4 py-3 text-sm text-left text-slate-700 dark:text-slate-200 hover:bg-theme-mint/30 dark:hover:bg-theme-olive/30 transition-colors"
+                                    >
+                                        <DownloadIcon className="w-5 h-5 text-theme-olive dark:text-theme-lime" />
+                                        Video đã tải (Offline)
+                                    </button>
                                     <button
                                         onClick={() => {
                                             onDataStoreClick && onDataStoreClick();
