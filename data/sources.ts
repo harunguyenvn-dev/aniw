@@ -34,6 +34,14 @@ export const DATA_SOURCES: DataSource[] = [
         tags: ['Anime', 'Ani4u', 'Phim']
     },
     {
+        id: 'ophim-api',
+        name: 'OPhim (API Tự Động)',
+        description: 'Kết nối trực tiếp tới máy chủ OPhim. Cập nhật phim mới và phim chiếu rạp liên tục theo thời gian thực. Hỗ trợ HLS Streaming.',
+        author: 'OPhim Team',
+        url: 'OPHIM_API', // Identifier đặc biệt để App nhận diện
+        tags: ['API', 'Auto-Update', 'HLS', 'Huge DB']
+    },
+    {
         id: 'hentai 1',
         name: 'hentai 1',
         description: 'Kho data hentai với 2700 bộ xem không bị chán, nếu không xem được thì chọn mở link gốc nhé.',
