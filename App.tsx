@@ -19,7 +19,7 @@ import SplashScreen from './components/SplashScreen';
 import StoreModal from './components/StoreModal';
 import DataStoreModal from './components/DataStoreModal';
 import OfflinePage from './components/OfflinePage';
-import { Anime, Episode, Settings, View } from './types';
+import { Anime, Episode, Settings, View, DownloadTask } from './types';
 import { DATA_SOURCES } from './data/sources';
 
 const ANIME_CSV_URL = 'https://raw.githubusercontent.com/harunguyenvn-dev/data/refs/heads/main/anime.csv';
@@ -70,8 +70,11 @@ const App: React.FC = () => {
     const [view, setView] = useState<View>('home');
     const [isOffline, setIsOffline] = useState(!navigator.onLine);
     
+    // --- DOWNLOAD MANAGER STATE ---
+    const [downloadQueue, setDownloadQueue] = useState<DownloadTask[]>([]);
+    const processingRef = useRef(false);
+
     const audioRef = useRef<HTMLAudioElement | null>(null);
-    
 
     const [likedImages, setLikedImages] = useState<string[]>(() => {
         try {
@@ -87,7 +90,6 @@ const App: React.FC = () => {
         const handleOnline = () => setIsOffline(false);
         const handleOffline = () => {
             setIsOffline(true);
-            // Optional: Auto switch to offline view or show toast
         };
 
         window.addEventListener('online', handleOnline);
@@ -541,10 +543,184 @@ const App: React.FC = () => {
         loadData();
     }, [settings.customAnimeDataUrl]);
 
+    // --- DOWNLOAD MANAGER LOGIC ---
+    
+    // Helper: Save Blob to IDB (Moved from AnimePlayer)
+    const saveToIndexedDB = async (blob: Blob, task: DownloadTask, fileType: string) => {
+        const dbRequest = indexedDB.open('aniw-offline-db', 1);
+        
+        dbRequest.onupgradeneeded = (event) => {
+            const db = (event.target as IDBOpenDBRequest).result;
+            if (!db.objectStoreNames.contains('videos')) {
+                db.createObjectStore('videos', { keyPath: 'id' });
+            }
+        };
+
+        const db = await new Promise<IDBDatabase>((resolve, reject) => {
+            dbRequest.onsuccess = () => resolve(dbRequest.result);
+            dbRequest.onerror = () => reject(dbRequest.error);
+        });
+
+        const transaction = db.transaction(['videos'], 'readwrite');
+        const store = transaction.objectStore('videos');
+        
+        const videoData = {
+            id: task.episode.link, 
+            animeName: task.animeName,
+            episodeTitle: task.episodeTitle,
+            savedAt: Date.now(),
+            blob: blob,
+            fileType: fileType
+        };
+
+        await new Promise((resolve, reject) => {
+            const request = store.put(videoData);
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    // Resolve relative URL (Moved from AnimePlayer)
+    const resolveUrl = (baseUrl: string, relativeUrl: string) => {
+        if (relativeUrl.startsWith('http://') || relativeUrl.startsWith('https://')) return relativeUrl;
+        const baseDir = baseUrl.substring(0, baseUrl.lastIndexOf('/') + 1);
+        return baseDir + relativeUrl;
+    };
+
+    const processDownloadTask = async (task: DownloadTask) => {
+        const updateTask = (updates: Partial<DownloadTask>) => {
+            setDownloadQueue(prev => prev.map(t => t.id === task.id ? { ...t, ...updates } : t));
+        };
+
+        updateTask({ status: 'downloading', progress: 'Bắt đầu...' });
+        const { episode } = task;
+
+        try {
+            if (episode.link.endsWith('.m3u8') || episode.link.includes('.m3u8')) {
+                let currentPlaylistUrl = episode.link;
+                let segmentUrls: string[] = [];
+                let foundSegments = false;
+                let retryCount = 0;
+                const maxRetries = 5;
+
+                while (!foundSegments && retryCount < maxRetries) {
+                    retryCount++;
+                    const response = await fetch(currentPlaylistUrl);
+                    if (!response.ok) throw new Error("Failed to fetch M3U8 playlist");
+                    const manifest = await response.text();
+                    const lines = manifest.split('\n');
+                    
+                    const childPlaylistLine = lines.find(line => 
+                        line.trim().length > 0 && 
+                        !line.trim().startsWith('#') && 
+                        (line.trim().includes('.m3u8'))
+                    );
+
+                    if (childPlaylistLine) {
+                        const newUrl = resolveUrl(currentPlaylistUrl, childPlaylistLine.trim());
+                        updateTask({ progress: `Đang tìm luồng chất lượng cao (${retryCount})...` });
+                        currentPlaylistUrl = newUrl;
+                    } else {
+                        foundSegments = true;
+                        segmentUrls = lines
+                            .map(line => line.trim())
+                            .filter(line => line && !line.startsWith('#'))
+                            .map(line => resolveUrl(currentPlaylistUrl, line));
+                    }
+                }
+
+                if (segmentUrls.length === 0) throw new Error("No video segments found in playlist");
+
+                const chunks: Blob[] = [];
+                for (let i = 0; i < segmentUrls.length; i++) {
+                    const percent = Math.round(((i + 1) / segmentUrls.length) * 100);
+                    updateTask({ progress: `Đang tải đoạn ${i + 1}/${segmentUrls.length} (${percent}%)` });
+                    
+                    try {
+                        const segRes = await fetch(segmentUrls[i]);
+                        if (!segRes.ok) throw new Error(`Segment fetch failed: ${segmentUrls[i]}`);
+                        const blob = await segRes.blob();
+                        chunks.push(blob);
+                    } catch (e) {
+                        console.warn(`Failed segment ${i}, skipping...`, e);
+                    }
+                }
+
+                updateTask({ progress: 'Đang ghép nối video...' });
+                const finalBlob = new Blob(chunks, { type: 'video/mp2t' });
+                await saveToIndexedDB(finalBlob, task, 'video/mp2t');
+
+            } else {
+                updateTask({ progress: 'Đang tải file...' });
+                const response = await fetch(episode.link);
+                if (!response.ok) throw new Error("Network error");
+                
+                const reader = response.body?.getReader();
+                const contentLength = +response.headers.get('Content-Length')!;
+                let receivedLength = 0;
+                let chunks = []; 
+
+                if (reader && contentLength) {
+                    while(true) {
+                        const {done, value} = await reader.read();
+                        if (done) break;
+                        chunks.push(value);
+                        receivedLength += value.length;
+                        updateTask({ progress: `Đang tải... ${Math.round((receivedLength/contentLength) * 100)}%` });
+                    }
+                    const blob = new Blob(chunks);
+                    await saveToIndexedDB(blob, task, blob.type);
+                } else {
+                    const blob = await response.blob();
+                    await saveToIndexedDB(blob, task, blob.type);
+                }
+            }
+            updateTask({ status: 'completed', progress: 'Hoàn tất' });
+            // Clean up completed tasks after a delay
+            setTimeout(() => {
+                setDownloadQueue(prev => prev.filter(t => t.id !== task.id));
+            }, 5000);
+
+        } catch (error) {
+            console.error("Download failed:", error);
+            updateTask({ status: 'error', progress: 'Lỗi tải xuống' });
+             setTimeout(() => {
+                setDownloadQueue(prev => prev.filter(t => t.id !== task.id));
+            }, 5000);
+        }
+    };
+
+    // Queue Processor
+    useEffect(() => {
+        const processQueue = async () => {
+            if (processingRef.current) return;
+            
+            // Find next pending task
+            const nextTask = downloadQueue.find(t => t.status === 'pending');
+            if (!nextTask) return;
+
+            // Check if we are already downloading something
+            const isDownloading = downloadQueue.some(t => t.status === 'downloading');
+            if (isDownloading) return; // Process one at a time for stability
+
+            processingRef.current = true;
+            await processDownloadTask(nextTask);
+            processingRef.current = false;
+        };
+
+        const interval = setInterval(processQueue, 1000);
+        return () => clearInterval(interval);
+    }, [downloadQueue]);
+
+
+    const addToQueue = (task: DownloadTask) => {
+        if (downloadQueue.some(t => t.id === task.id)) return; // Avoid duplicates
+        setDownloadQueue(prev => [...prev, task]);
+    };
+
     // Check if download is allowed for current source
     const isDownloadAllowed = useMemo(() => {
         const currentUrl = settings.customAnimeDataUrl || ANIME_CSV_URL;
-        // If current URL is exactly one of the known sources with download='yes'
         const matchedSource = DATA_SOURCES.find(s => s.url === currentUrl);
         return matchedSource?.download === 'yes';
     }, [settings.customAnimeDataUrl]);
@@ -704,6 +880,8 @@ const App: React.FC = () => {
                         onClose={handleClosePlayer}
                         containerClassName={playerContainerClass}
                         allowDownload={isDownloadAllowed}
+                        downloadQueue={downloadQueue}
+                        addToQueue={addToQueue}
                     />;
         }
 
@@ -730,6 +908,25 @@ const App: React.FC = () => {
         <div className={`min-h-screen ${appBg} text-theme-darkest dark:text-theme-lightest relative`}>
             {isLoadingApp && <SplashScreen finishLoading={() => setIsLoadingApp(false)} />}
             
+            {/* Global Download Indicator (Mini Status) */}
+            {downloadQueue.length > 0 && (
+                <div className="fixed bottom-4 left-4 z-[90] bg-black/80 text-white p-3 rounded-lg shadow-xl backdrop-blur-md border border-white/10 text-xs font-mono max-w-[200px]">
+                    <div className="font-bold text-green-400 mb-1 flex items-center gap-2">
+                        <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                        Đang xử lý: {downloadQueue.length}
+                    </div>
+                    {downloadQueue.slice(0, 2).map(t => (
+                        <div key={t.id} className="mb-1 truncate">
+                             <span className={t.status === 'downloading' ? 'text-yellow-400' : 'text-slate-400'}>
+                                {t.status === 'downloading' ? '➤ ' : '• '} 
+                             </span>
+                             {t.episodeTitle}: {t.progress}
+                        </div>
+                    ))}
+                    {downloadQueue.length > 2 && <div className="text-slate-500 italic">...và {downloadQueue.length - 2} tập khác</div>}
+                </div>
+            )}
+
             {/* Offline Alert */}
             {isOffline && (
                 <div className="fixed top-0 left-0 w-full bg-red-600 text-white z-[100] p-2 text-center text-sm font-bold shadow-lg animate-pulse cursor-pointer" onClick={() => handleViewChange('offline-videos')}>
