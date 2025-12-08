@@ -119,7 +119,7 @@ export interface AnimeThemeTrack {
   coverUrl: string;
 }
 
-export type View = 'home' | 'glossary' | 'ranking' | 'schedule' | 'music' | 'liked-images' | 'random' | 'relaxation' | 'todo-list';
+export type View = 'home' | 'glossary' | 'ranking' | 'schedule' | 'music' | 'liked-images' | 'random' | 'relaxation' | 'todo-list' | 'offline-videos';
 
 export interface OfflineVideo {
     id: string;
@@ -127,4 +127,5 @@ export interface OfflineVideo {
     episodeTitle: string;
     savedAt: number;
     blob: Blob;
+    fileType: string;
 }
