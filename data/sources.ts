@@ -40,6 +40,7 @@ export const DATA_SOURCES: DataSource[] = [
         author: 'OPhim Team',
         url: 'OPHIM_API', // Identifier đặc biệt để App nhận diện
         tags: ['API', 'Auto-Update', 'HLS', 'Huge DB']
+        download: "yes"
     },
     {
         id: 'hentai 1',
@@ -56,5 +57,6 @@ export const DATA_SOURCES: DataSource[] = [
         author: 'harunguyen',
         url: 'https://raw.githubusercontent.com/harunguyenvn-dev/data/refs/heads/main/api/hen1/data.csv',
         tags: ['18+', 'hentai', '210']
+        download: "yes"
     }
 ];
