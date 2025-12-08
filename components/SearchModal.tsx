@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { CloseIcon, SearchIcon } from './icons';
 import { Anime, Settings } from '../types';
@@ -8,16 +9,18 @@ interface SearchModalProps {
   animeList: Anime[];
   onSelectAnime: (anime: Anime) => void;
   settings: Settings;
+  isBackgroundFetching?: boolean;
+  backgroundStatus?: string;
 }
 
-const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, animeList, onSelectAnime, settings }) => {
+const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, animeList, onSelectAnime, settings, isBackgroundFetching, backgroundStatus }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredAnime = useMemo(() => {
     if (!searchTerm) return [];
     return animeList.filter(anime => 
       anime.name.toLowerCase().startsWith(searchTerm.toLowerCase())
-    ).slice(0, 10); // Limit to 10 suggestions
+    ).slice(0, 10);
   }, [searchTerm, animeList]);
 
   if (!isOpen) return null;
@@ -47,6 +50,14 @@ const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, animeList, o
                     <CloseIcon className="w-6 h-6" />
                 </button>
             </div>
+            {isBackgroundFetching && (
+                <div className="mt-3 px-4 py-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center gap-2 animate-pulse">
+                    <div className="w-4 h-4 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin"></div>
+                    <span className="text-xs font-semibold text-indigo-500 dark:text-indigo-300">
+                        {backgroundStatus || 'Đang tải dữ liệu vui lòng chờ'}
+                    </span>
+                </div>
+            )}
         </div>
 
         {searchTerm && (
