@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Settings, OfflineVideo } from '../types';
-import { BackIcon, PlayIcon, TrashIcon, DatabaseIcon } from './icons';
+import { BackIcon, PlayIcon, TrashIcon, DatabaseIcon, DownloadIcon } from './icons';
 
 interface OfflinePageProps {
     settings: Settings;
@@ -44,6 +44,8 @@ const OfflinePage: React.FC<OfflinePageProps> = ({ settings, onBack }) => {
                 request.onerror = () => reject(request.error);
             });
 
+            // Descending sort by save time
+            loadedVideos.sort((a, b) => b.savedAt - a.savedAt);
             setVideos(loadedVideos);
         } catch (error) {
             console.error("Failed to load offline videos", error);
@@ -76,6 +78,20 @@ const OfflinePage: React.FC<OfflinePageProps> = ({ settings, onBack }) => {
         const url = URL.createObjectURL(video.blob);
         setVideoUrl(url);
         setPlayingVideo(video);
+    };
+
+    const handleSaveToDevice = (video: OfflineVideo, e: React.MouseEvent) => {
+        e.stopPropagation();
+        const url = URL.createObjectURL(video.blob);
+        const link = document.createElement('a');
+        link.href = url;
+        // Check file type to give correct extension
+        const ext = video.fileType === 'video/mp2t' ? '.ts' : '.mp4';
+        link.download = `${video.animeName} - ${video.episodeTitle}${ext}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
     };
 
     const handleClosePlayer = () => {
@@ -125,6 +141,11 @@ const OfflinePage: React.FC<OfflinePageProps> = ({ settings, onBack }) => {
                     <div className="absolute bottom-10 left-0 w-full text-center pointer-events-none">
                         <h2 className="text-white text-xl font-bold drop-shadow-md">{playingVideo.episodeTitle}</h2>
                         <p className="text-white/70 text-sm drop-shadow-md">{playingVideo.animeName}</p>
+                        {playingVideo.fileType === 'video/mp2t' && (
+                             <p className="text-yellow-400 text-xs mt-2 drop-shadow-md bg-black/50 inline-block px-2 py-1 rounded">
+                                Lưu ý: Định dạng .ts có thể không phát được trên một số trình duyệt. Hãy dùng nút tải về để xem bằng VLC.
+                            </p>
+                        )}
                     </div>
                 </div>
             )}
@@ -138,8 +159,7 @@ const OfflinePage: React.FC<OfflinePageProps> = ({ settings, onBack }) => {
                 ) : videos.length === 0 ? (
                     <div className="text-center py-20 opacity-50 flex flex-col items-center">
                         <DatabaseIcon className="w-20 h-20 mb-4" />
-                        <p className="text-xl font-bold">Chưa có video nào được lưu!</p>
-                        <p>Hãy tìm nguồn cho phép tải (như OPhim) và tải về nhé.</p>
+                        <p className="text-xl font-bold">Chưa có video nào được tải về!</p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -153,20 +173,32 @@ const OfflinePage: React.FC<OfflinePageProps> = ({ settings, onBack }) => {
                                         onClick={() => handlePlay(video)}
                                         className="absolute inset-0 w-full h-full z-10"
                                     />
+                                    {video.fileType === 'video/mp2t' && (
+                                        <span className="absolute top-2 right-2 bg-yellow-500 text-black text-[10px] font-bold px-2 py-0.5 rounded">TS</span>
+                                    )}
                                 </div>
                                 <div className="p-4 flex justify-between items-start">
-                                    <div>
+                                    <div className="min-w-0 pr-2">
                                         <h3 className="font-bold text-lg line-clamp-1">{video.animeName}</h3>
                                         <p className="text-sm opacity-70 mb-2">{video.episodeTitle}</p>
                                         <p className="text-xs opacity-50">Lưu lúc: {new Date(video.savedAt).toLocaleDateString()}</p>
                                     </div>
-                                    <button 
-                                        onClick={() => handleDelete(video.id)}
-                                        className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
-                                        title="Xóa video"
-                                    >
-                                        <TrashIcon className="w-5 h-5" />
-                                    </button>
+                                    <div className="flex flex-col gap-2">
+                                         <button 
+                                            onClick={(e) => handleSaveToDevice(video, e)}
+                                            className="p-2 text-indigo-500 hover:bg-indigo-500/10 rounded-lg transition-colors z-20"
+                                            title="Lưu file về máy"
+                                        >
+                                            <DownloadIcon className="w-5 h-5" />
+                                        </button>
+                                        <button 
+                                            onClick={() => handleDelete(video.id)}
+                                            className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors z-20"
+                                            title="Xóa video"
+                                        >
+                                            <TrashIcon className="w-5 h-5" />
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         ))}
