@@ -217,7 +217,10 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({ anime, settings, onClose, con
     const [isEpisodeListOpen, setIsEpisodeListOpen] = useState(true);
     const episodeListRef = useRef<HTMLUListElement>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
+    
+    // Download states
     const [downloadingEp, setDownloadingEp] = useState<string | null>(null);
+    const [downloadProgress, setDownloadProgress] = useState<string | null>(null);
     const [downloadSuccess, setDownloadSuccess] = useState<string | null>(null);
 
     const [listPanelWidth, setListPanelWidth] = useState(576); 
@@ -230,60 +233,63 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({ anime, settings, onClose, con
 
     const isM3U8 = currentEpisode.link.includes('.m3u8');
 
-    // Handle Download Logic
+    // Service Worker Message Listener
+    useEffect(() => {
+        if (!('serviceWorker' in navigator)) return;
+
+        const handleMessage = (event: MessageEvent) => {
+            const data = event.data;
+            if (!data || !data.type) return;
+
+            if (data.type === 'DOWNLOAD_PROGRESS') {
+                const { id, progress, status } = data.payload;
+                // Only update if this component cares about this download
+                if (downloadingEp === id) {
+                    setDownloadProgress(`${status} (${progress}%)`);
+                }
+            } else if (data.type === 'DOWNLOAD_COMPLETE') {
+                const { id } = data.payload;
+                if (downloadingEp === id) {
+                    setDownloadingEp(null);
+                    setDownloadProgress(null);
+                    setDownloadSuccess(id);
+                    setTimeout(() => setDownloadSuccess(null), 3000);
+                }
+            } else if (data.type === 'DOWNLOAD_ERROR') {
+                const { id, error } = data.payload;
+                if (downloadingEp === id) {
+                    setDownloadingEp(null);
+                    setDownloadProgress(null);
+                    alert(`Lỗi tải xuống: ${error}`);
+                }
+            }
+        };
+
+        navigator.serviceWorker.addEventListener('message', handleMessage);
+        return () => navigator.serviceWorker.removeEventListener('message', handleMessage);
+    }, [downloadingEp]);
+
+    // Handle Download Logic via Service Worker
     const handleDownload = async (episode: Episode) => {
         if (downloadingEp) return;
-        setDownloadingEp(episode.link);
         
-        try {
-            // Check if DB exists, if not open/create it
-            const dbRequest = indexedDB.open('aniw-offline-db', 1);
-            
-            dbRequest.onupgradeneeded = (event) => {
-                const db = (event.target as IDBOpenDBRequest).result;
-                if (!db.objectStoreNames.contains('videos')) {
-                    db.createObjectStore('videos', { keyPath: 'id' });
-                }
-            };
-
-            const db = await new Promise<IDBDatabase>((resolve, reject) => {
-                dbRequest.onsuccess = () => resolve(dbRequest.result);
-                dbRequest.onerror = () => reject(dbRequest.error);
-            });
-
-            // Fetch video
-            const response = await fetch(episode.link);
-            if (!response.ok) throw new Error("Network error");
-            const blob = await response.blob();
-
-            // Transaction
-            const transaction = db.transaction(['videos'], 'readwrite');
-            const store = transaction.objectStore('videos');
-            
-            const videoData = {
-                id: episode.link, // Use link as ID
-                animeName: anime.name,
-                episodeTitle: episode.episodeTitle,
-                savedAt: Date.now(),
-                blob: blob,
-                fileType: blob.type
-            };
-
-            await new Promise((resolve, reject) => {
-                const request = store.put(videoData);
-                request.onsuccess = () => resolve(request.result);
-                request.onerror = () => reject(request.error);
-            });
-
-            setDownloadSuccess(episode.link);
-            setTimeout(() => setDownloadSuccess(null), 3000);
-
-        } catch (error) {
-            console.error("Download failed:", error);
-            alert("Không thể tải video này. Có thể do lỗi mạng hoặc CORS.");
-        } finally {
-            setDownloadingEp(null);
+        if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) {
+            alert('Trình duyệt không hỗ trợ Service Worker hoặc Service Worker chưa sẵn sàng. Vui lòng tải lại trang.');
+            return;
         }
+
+        setDownloadingEp(episode.link);
+        setDownloadProgress('Đang gửi lệnh...');
+        
+        navigator.serviceWorker.controller.postMessage({
+            type: 'DOWNLOAD_VIDEO',
+            payload: {
+                id: episode.link, // Unique ID for tracking
+                url: episode.link,
+                animeName: anime.name,
+                episodeTitle: episode.episodeTitle
+            }
+        });
     };
 
     useEffect(() => {
@@ -496,19 +502,26 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({ anime, settings, onClose, con
                                         </button>
                                         
                                         {allowDownload && (
-                                            <button 
-                                                onClick={(e) => { e.stopPropagation(); handleDownload(episode); }}
-                                                className="ml-2 p-2 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
-                                                title="Tải video này"
-                                            >
-                                                {downloadSuccess === episode.link ? (
-                                                    <CheckIcon className="w-5 h-5 text-green-400" />
-                                                ) : downloadingEp === episode.link ? (
-                                                    <div className="w-5 h-5 border-2 border-theme-lime border-t-transparent rounded-full animate-spin"></div>
-                                                ) : (
-                                                    <DownloadIcon className="w-5 h-5" />
+                                            <div className="relative">
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); handleDownload(episode); }}
+                                                    className="ml-2 p-2 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+                                                    title={downloadingEp === episode.link ? "Đang tải trong nền..." : "Tải video này"}
+                                                >
+                                                    {downloadSuccess === episode.link ? (
+                                                        <CheckIcon className="w-5 h-5 text-green-400" />
+                                                    ) : downloadingEp === episode.link ? (
+                                                        <div className="w-5 h-5 border-2 border-theme-lime border-t-transparent rounded-full animate-spin"></div>
+                                                    ) : (
+                                                        <DownloadIcon className="w-5 h-5" />
+                                                    )}
+                                                </button>
+                                                {downloadingEp === episode.link && downloadProgress && (
+                                                    <span className="absolute -top-8 right-0 whitespace-nowrap bg-black/80 text-white text-[10px] px-2 py-1 rounded">
+                                                        {downloadProgress}
+                                                    </span>
                                                 )}
-                                            </button>
+                                            </div>
                                         )}
                                     </div>
                                 </li>
@@ -571,19 +584,26 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({ anime, settings, onClose, con
                                         </button>
                                         
                                         {allowDownload && (
-                                            <button 
-                                                onClick={(e) => { e.stopPropagation(); handleDownload(episode); }}
-                                                className="ml-2 p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-slate-400 hover:text-theme-lime transition-colors"
-                                                title="Tải video này"
-                                            >
-                                                {downloadSuccess === episode.link ? (
-                                                    <CheckIcon className="w-5 h-5 text-green-500" />
-                                                ) : downloadingEp === episode.link ? (
-                                                    <div className="w-5 h-5 border-2 border-theme-lime border-t-transparent rounded-full animate-spin"></div>
-                                                ) : (
-                                                    <DownloadIcon className="w-5 h-5" />
+                                            <div className="relative">
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); handleDownload(episode); }}
+                                                    className="ml-2 p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-slate-400 hover:text-theme-lime transition-colors"
+                                                    title={downloadingEp === episode.link ? "Đang tải trong nền..." : "Tải video này"}
+                                                >
+                                                    {downloadSuccess === episode.link ? (
+                                                        <CheckIcon className="w-5 h-5 text-green-500" />
+                                                    ) : downloadingEp === episode.link ? (
+                                                        <div className="w-5 h-5 border-2 border-theme-lime border-t-transparent rounded-full animate-spin"></div>
+                                                    ) : (
+                                                        <DownloadIcon className="w-5 h-5" />
+                                                    )}
+                                                </button>
+                                                 {downloadingEp === episode.link && downloadProgress && (
+                                                    <div className="absolute top-10 right-0 z-50 bg-black/90 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap shadow-lg">
+                                                        {downloadProgress}
+                                                    </div>
                                                 )}
-                                            </button>
+                                            </div>
                                         )}
                                     </div>
                                 </li>
