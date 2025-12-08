@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Anime, Episode, Settings } from '../types';
 import Notes from './Notes';
-import { BackIcon, ChevronDoubleLeftIcon, ChevronDoubleRightIcon, PlayIcon } from './icons';
+import { BackIcon, ChevronDoubleLeftIcon, ChevronDoubleRightIcon, PlayIcon, DownloadIcon, CheckIcon } from './icons';
 
 declare var Hls: any;
 
@@ -208,18 +208,20 @@ interface AnimePlayerProps {
     settings: Settings;
     onClose: () => void;
     containerClassName?: string;
+    allowDownload?: boolean;
 }
 
-const AnimePlayer: React.FC<AnimePlayerProps> = ({ anime, settings, onClose, containerClassName }) => {
+const AnimePlayer: React.FC<AnimePlayerProps> = ({ anime, settings, onClose, containerClassName, allowDownload = false }) => {
     const { blockNewTabs, showNotes, disablePopupPlayer, theme, showCalendar, showTodoList, showStopwatch, resizablePanes, enableHoverAnimation } = settings;
     const [currentEpisode, setCurrentEpisode] = useState<Episode>(anime.episodes[0]);
     const [isEpisodeListOpen, setIsEpisodeListOpen] = useState(true);
     const episodeListRef = useRef<HTMLUListElement>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
+    const [downloadingEp, setDownloadingEp] = useState<string | null>(null);
+    const [downloadSuccess, setDownloadSuccess] = useState<string | null>(null);
 
-    // Resizable panes state and logic
-    const [listPanelWidth, setListPanelWidth] = useState(576); // 36rem
-    const [utilityPanelWidth, setUtilityPanelWidth] = useState(320); // w-80
+    const [listPanelWidth, setListPanelWidth] = useState(576); 
+    const [utilityPanelWidth, setUtilityPanelWidth] = useState(320); 
 
     const containerRef = useRef<HTMLDivElement>(null);
     const resizingPanel = useRef<'list' | 'utility' | null>(null);
@@ -228,7 +230,62 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({ anime, settings, onClose, con
 
     const isM3U8 = currentEpisode.link.includes('.m3u8');
 
-    // Handle HLS
+    // Handle Download Logic
+    const handleDownload = async (episode: Episode) => {
+        if (downloadingEp) return;
+        setDownloadingEp(episode.link);
+        
+        try {
+            // Check if DB exists, if not open/create it
+            const dbRequest = indexedDB.open('aniw-offline-db', 1);
+            
+            dbRequest.onupgradeneeded = (event) => {
+                const db = (event.target as IDBOpenDBRequest).result;
+                if (!db.objectStoreNames.contains('videos')) {
+                    db.createObjectStore('videos', { keyPath: 'id' });
+                }
+            };
+
+            const db = await new Promise<IDBDatabase>((resolve, reject) => {
+                dbRequest.onsuccess = () => resolve(dbRequest.result);
+                dbRequest.onerror = () => reject(dbRequest.error);
+            });
+
+            // Fetch video
+            const response = await fetch(episode.link);
+            if (!response.ok) throw new Error("Network error");
+            const blob = await response.blob();
+
+            // Transaction
+            const transaction = db.transaction(['videos'], 'readwrite');
+            const store = transaction.objectStore('videos');
+            
+            const videoData = {
+                id: episode.link, // Use link as ID
+                animeName: anime.name,
+                episodeTitle: episode.episodeTitle,
+                savedAt: Date.now(),
+                blob: blob,
+                fileType: blob.type
+            };
+
+            await new Promise((resolve, reject) => {
+                const request = store.put(videoData);
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+
+            setDownloadSuccess(episode.link);
+            setTimeout(() => setDownloadSuccess(null), 3000);
+
+        } catch (error) {
+            console.error("Download failed:", error);
+            alert("Không thể tải video này. Có thể do lỗi mạng hoặc CORS.");
+        } finally {
+            setDownloadingEp(null);
+        }
+    };
+
     useEffect(() => {
         if (isM3U8 && videoRef.current) {
             const video = videoRef.current;
@@ -320,7 +377,6 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({ anime, settings, onClose, con
         }
     };
     
-    // Only use iframe link processing if NOT HLS
     const playbackSrc = isM3U8 ? currentEpisode.link : getPlaybackLink(currentEpisode.link);
 
     const utilityPanels = [
@@ -369,7 +425,6 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({ anime, settings, onClose, con
                 <div className="flex-grow w-full relative group/player">
                     {renderPlayer()}
                     
-                    {/* Fallback button for blocked embeddings */}
                      <a 
                         href={currentEpisode.link} 
                         target="_blank" 
@@ -439,33 +494,28 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({ anime, settings, onClose, con
                                                 {episode.episodeTitle}
                                             </h3>
                                         </button>
+                                        
+                                        {allowDownload && (
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); handleDownload(episode); }}
+                                                className="ml-2 p-2 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+                                                title="Tải video này"
+                                            >
+                                                {downloadSuccess === episode.link ? (
+                                                    <CheckIcon className="w-5 h-5 text-green-400" />
+                                                ) : downloadingEp === episode.link ? (
+                                                    <div className="w-5 h-5 border-2 border-theme-lime border-t-transparent rounded-full animate-spin"></div>
+                                                ) : (
+                                                    <DownloadIcon className="w-5 h-5" />
+                                                )}
+                                            </button>
+                                        )}
                                     </div>
                                 </li>
                             ))}
                         </ul>
                     </div>
                 </div>
-                <style>{`
-                    @keyframes fade-in {
-                        from { opacity: 0; }
-                        to { opacity: 1; }
-                    }
-                    .animate-fade-in { animation: fade-in 0.3s ease-out forwards; }
-                    .line-clamp-1 {
-                        overflow: hidden;
-                        display: -webkit-box;
-                        -webkit-box-orient: vertical;
-                        -webkit-line-clamp: 1;
-                    }
-                     .line-clamp-2 {
-                        overflow: hidden;
-                        display: -webkit-box;
-                        -webkit-box-orient: vertical;
-                        -webkit-line-clamp: 2;
-                    }
-                    .no-scrollbar::-webkit-scrollbar { display: none; }
-                    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-                `}</style>
             </div>
         );
     }
@@ -487,7 +537,6 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({ anime, settings, onClose, con
     return (
         <main className={`h-screen w-screen flex items-center justify-center ${containerClassName}`}>
             <div ref={containerRef} className={`w-full h-full rounded-3xl shadow-2xl flex flex-col-reverse md:flex-row p-1 sm:p-2 gap-2 ${containerClasses}`}>
-                {/* Left Column: Episode List */}
                 <div 
                     style={resizablePanes ? { flex: `0 0 ${listPanelWidth}px` } : {}}
                     className={`flex-shrink-0 w-full md:w-auto h-1/3 md:h-full rounded-2xl flex flex-col ${!resizablePanes ? 'md:w-[36rem]' : ''}`}
@@ -520,6 +569,22 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({ anime, settings, onClose, con
                                                 </h3>
                                             </div>
                                         </button>
+                                        
+                                        {allowDownload && (
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); handleDownload(episode); }}
+                                                className="ml-2 p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-slate-400 hover:text-theme-lime transition-colors"
+                                                title="Tải video này"
+                                            >
+                                                {downloadSuccess === episode.link ? (
+                                                    <CheckIcon className="w-5 h-5 text-green-500" />
+                                                ) : downloadingEp === episode.link ? (
+                                                    <div className="w-5 h-5 border-2 border-theme-lime border-t-transparent rounded-full animate-spin"></div>
+                                                ) : (
+                                                    <DownloadIcon className="w-5 h-5" />
+                                                )}
+                                            </button>
+                                        )}
                                     </div>
                                 </li>
                             ))}
@@ -529,13 +594,11 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({ anime, settings, onClose, con
 
                 {resizablePanes && <Resizer onMouseDown={handleMouseDown('list')} orientation="vertical" />}
 
-                {/* Right Column: Player and Utilities */}
                 <div className="flex-grow h-2/3 md:h-full flex flex-col md:flex-row gap-2 sm:gap-4 overflow-hidden">
                     <div className="flex-grow h-full flex flex-col p-2 sm:p-4">
                          <div className={`flex-grow aspect-video rounded-lg overflow-hidden shadow-2xl shadow-black/50 relative group/player ${['glass-ui', 'liquid-glass'].includes(theme) ? 'glass-card' : 'bg-black border border-slate-700'}`}>
                             {renderPlayer()}
                             
-                            {/* Backup Link for Regular View */}
                             <a 
                                 href={currentEpisode.link} 
                                 target="_blank" 
