@@ -273,15 +273,12 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({ anime, settings, onClose, con
     const handleDownload = async (episode: Episode) => {
         if (downloadingEp) return;
         
-        if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) {
-            alert('Trình duyệt không hỗ trợ Service Worker hoặc Service Worker chưa sẵn sàng. Vui lòng tải lại trang.');
+        if (!('serviceWorker' in navigator)) {
+            alert('Trình duyệt không hỗ trợ Service Worker. Vui lòng sử dụng Chrome/Edge/Firefox mới nhất.');
             return;
         }
 
-        setDownloadingEp(episode.link);
-        setDownloadProgress('Đang gửi lệnh...');
-        
-        navigator.serviceWorker.controller.postMessage({
+        const messageData = {
             type: 'DOWNLOAD_VIDEO',
             payload: {
                 id: episode.link, // Unique ID for tracking
@@ -289,7 +286,29 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({ anime, settings, onClose, con
                 animeName: anime.name,
                 episodeTitle: episode.episodeTitle
             }
-        });
+        };
+
+        const sendMessage = (registration: ServiceWorkerRegistration) => {
+            if (registration.active) {
+                setDownloadingEp(episode.link);
+                setDownloadProgress('Đang gửi lệnh...');
+                registration.active.postMessage(messageData);
+            } else {
+                 alert('Service Worker chưa sẵn sàng. Vui lòng tải lại trang.');
+            }
+        };
+
+        // If controller is available, use it directly
+        if (navigator.serviceWorker.controller) {
+             setDownloadingEp(episode.link);
+             setDownloadProgress('Đang gửi lệnh...');
+             navigator.serviceWorker.controller.postMessage(messageData);
+        } else {
+            // Otherwise wait for it to be ready (e.g. first load)
+            navigator.serviceWorker.ready.then(sendMessage).catch(err => {
+                 alert('Không thể kết nối tới Service Worker: ' + err);
+            });
+        }
     };
 
     useEffect(() => {
