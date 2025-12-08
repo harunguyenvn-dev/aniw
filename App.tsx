@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Header from './components/Header';
 import DonateModal from './components/SubscriptionModal';
@@ -17,7 +18,9 @@ import TodoListPage from './components/TodoListPage';
 import SplashScreen from './components/SplashScreen';
 import StoreModal from './components/StoreModal';
 import DataStoreModal from './components/DataStoreModal';
+import OfflinePage from './components/OfflinePage';
 import { Anime, Episode, Settings, View } from './types';
+import { DATA_SOURCES } from './data/sources';
 
 const ANIME_CSV_URL = 'https://raw.githubusercontent.com/harunguyenvn-dev/data/refs/heads/main/anime.csv';
 
@@ -65,6 +68,8 @@ const App: React.FC = () => {
     const [isBackgroundFetching, setIsBackgroundFetching] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [view, setView] = useState<View>('home');
+    const [isOffline, setIsOffline] = useState(!navigator.onLine);
+    
     const audioRef = useRef<HTMLAudioElement | null>(null);
     
 
@@ -77,6 +82,21 @@ const App: React.FC = () => {
         }
     });
 
+    // Detect offline status
+    useEffect(() => {
+        const handleOnline = () => setIsOffline(false);
+        const handleOffline = () => {
+            setIsOffline(true);
+            // Optional: Auto switch to offline view or show toast
+        };
+
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
+    }, []);
 
     useEffect(() => {
         const handler = (e: any) => {
@@ -521,6 +541,13 @@ const App: React.FC = () => {
         loadData();
     }, [settings.customAnimeDataUrl]);
 
+    // Check if download is allowed for current source
+    const isDownloadAllowed = useMemo(() => {
+        const currentUrl = settings.customAnimeDataUrl || ANIME_CSV_URL;
+        // If current URL is exactly one of the known sources with download='yes'
+        const matchedSource = DATA_SOURCES.find(s => s.url === currentUrl);
+        return matchedSource?.download === 'yes';
+    }, [settings.customAnimeDataUrl]);
 
     const handleSelectAnime = (anime: Anime) => {
         setSelectedAnime(anime);
@@ -565,6 +592,9 @@ const App: React.FC = () => {
         }
         if (view === 'todo-list') {
             return <TodoListPage settings={settings} onBack={() => handleViewChange('home')} />;
+        }
+        if (view === 'offline-videos') {
+            return <OfflinePage settings={settings} onBack={() => handleViewChange('home')} />;
         }
 
         const getContentPadding = (viewType: 'player' | 'main') => {
@@ -653,7 +683,7 @@ const App: React.FC = () => {
                  <div className="flex justify-center items-center h-screen flex-col gap-4">
                     <div className="animate-spin rounded-full h-24 w-24 border-t-4 border-b-4 border-theme-lime"></div>
                     <p className="text-theme-darkest dark:text-theme-lightest font-bold animate-pulse text-lg">{loadingStatus}</p>
-                    <p className="text-sm opacity-70">Đang tải dữ liệu...</p>
+                    <p className="text-sm opacity-70">đang tải dữ liệu...</p>
                 </div>
             );
         }
@@ -673,6 +703,7 @@ const App: React.FC = () => {
                         settings={settings}
                         onClose={handleClosePlayer}
                         containerClassName={playerContainerClass}
+                        allowDownload={isDownloadAllowed}
                     />;
         }
 
@@ -696,10 +727,17 @@ const App: React.FC = () => {
     const appBg = ['glass-ui', 'liquid-glass'].includes(settings.theme) ? '' : 'bg-theme-lightest dark:bg-theme-darkest';
 
     return (
-        <div className={`min-h-screen ${appBg} text-theme-darkest dark:text-theme-lightest`}>
+        <div className={`min-h-screen ${appBg} text-theme-darkest dark:text-theme-lightest relative`}>
             {isLoadingApp && <SplashScreen finishLoading={() => setIsLoadingApp(false)} />}
             
-            {(settings.theme === 'liquid-glass' && view !== 'music' && view !== 'random' && view !== 'relaxation' && view !== 'todo-list') && <LiquidBackground />}
+            {/* Offline Alert */}
+            {isOffline && (
+                <div className="fixed top-0 left-0 w-full bg-red-600 text-white z-[100] p-2 text-center text-sm font-bold shadow-lg animate-pulse cursor-pointer" onClick={() => handleViewChange('offline-videos')}>
+                    Mất kết nối mạng? Bấm vào đây để xem kho phim Offline đã tải!
+                </div>
+            )}
+            
+            {(settings.theme === 'liquid-glass' && view !== 'music' && view !== 'random' && view !== 'relaxation' && view !== 'todo-list' && view !== 'offline-videos') && <LiquidBackground />}
             {(view !== 'relaxation' && view !== 'todo-list') && (
                 <Header 
                     onDonateClick={() => setIsDonateModalOpen(true)} 
@@ -717,6 +755,7 @@ const App: React.FC = () => {
                     onTodoListClick={() => handleViewChange('todo-list')}
                     onStoreClick={() => setIsStoreOpen(true)}
                     onDataStoreClick={() => setIsDataStoreOpen(true)}
+                    onOfflineClick={() => handleViewChange('offline-videos')}
                     installApp={handleInstallApp}
                     settings={settings}
                     view={view}
