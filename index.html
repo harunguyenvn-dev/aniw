@@ -2,13 +2,17 @@
 <html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/jpeg" href="https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/icon/ic_avatar5.jpg" />
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#1f2937" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="apple-mobile-web-app-capable" content="yes">
+    
+    <!-- Updated meta tags for PWA -->
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="AniW">
     <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/icon/ic_avatar5.jpg">
+    
     <title>AniW CLB anime tại HPU</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -234,12 +238,17 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/service-worker.js')
+          // Dynamically construct the Service Worker URL relative to the current origin
+          // This fixes issues where 'scriptURL' (e.g. from ai.studio) mismatches 'origin' (e.g. usercontent.goog)
+          // in preview environments.
+          const swUrl = new URL('service-worker.js', window.location.href).href;
+
+          navigator.serviceWorker.register(swUrl)
             .then(registration => {
-              console.log('SW registered: ', registration);
+              console.log('SW registered successfully with scope:', registration.scope);
             })
             .catch(registrationError => {
-              console.log('SW registration failed: ', registrationError);
+              console.error('SW registration failed:', registrationError);
             });
         });
       }
