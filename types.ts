@@ -129,3 +129,12 @@ export interface OfflineVideo {
     blob: Blob;
     fileType: string;
 }
+
+export interface DownloadTask {
+    id: string; // usually episode link
+    animeName: string;
+    episodeTitle: string;
+    episode: Episode;
+    status: 'pending' | 'downloading' | 'completed' | 'error';
+    progress: string; // Text description like "30%" or "Đang ghép file"
+}
