@@ -68,7 +68,9 @@ const App: React.FC = () => {
     const [loadingStatus, setLoadingStatus] = useState("đang chuẩn bị...");
     const [isBackgroundFetching, setIsBackgroundFetching] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [view, setView] = useState<View>('home');
+    
+    // Khởi tạo view dựa trên trạng thái mạng: Nếu offline -> vào thẳng offline-videos
+    const [view, setView] = useState<View>(() => navigator.onLine ? 'home' : 'offline-videos');
     
     const [isOffline, setIsOffline] = useState(!navigator.onLine);
     const [showOnlineToast, setShowOnlineToast] = useState(false);
@@ -491,9 +493,18 @@ const App: React.FC = () => {
         };
 
         const loadData = async () => {
+            // CRITICAL: Nếu đang Offline, KHÔNG cố tải dữ liệu từ API/CSV để tránh lỗi
+            // Và giữ nguyên View là 'offline-videos' (đã set ở useState khởi tạo)
+            if (!navigator.onLine) {
+                setLoading(false);
+                return; 
+            }
+
             setLoading(true);
             setError(null);
             setSelectedAnime(null);
+            
+            // Chỉ reset về home nếu có mạng
             setView('home');
 
             const urlToTry = settings.customAnimeDataUrl || ANIME_CSV_URL;
