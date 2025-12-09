@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en" class="dark">
   <head>
@@ -227,11 +228,22 @@
         font-style: normal !important;
       }
     </style>
-<link rel="stylesheet" href="/index.css">
 </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
-    <!-- Service Worker registration removed to prevent origin mismatch errors in preview environments -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => {
+                        console.log('SW registered: ', registration);
+                    })
+                    .catch(registrationError => {
+                        console.log('SW registration failed: ', registrationError);
+                    });
+            });
+        }
+    </script>
   </body>
 </html>
