@@ -6,62 +6,56 @@ export interface DataSource {
     author: string;
     url: string;
     tags: string[];
-    download?: "yes" | "no";
 }
 
 export const DATA_SOURCES: DataSource[] = [
     {
-        id: 'official-source',
-        name: 'Kho Anime Chính (Official)',
-        description: 'Nguồn dữ liệu gốc ổn định nhất, được kiểm duyệt kỹ càng. Bao gồm các bộ anime phổ biến theo mùa.',
-        author: 'AniW Team',
+        id: 'Animehay',
+        name: 'Anime Hay',
+        description: 'Data này có một số anime sẽ bị thiếu tập',
+        author: 'harunguyen',
         url: 'https://raw.githubusercontent.com/harunguyenvn-dev/data/refs/heads/main/anime.csv',
-        tags: ['Official', 'Stable', 'Recommended'],
-        download: "no"
+        tags: ['Anime', 'Main']
+    },
+    {
+        id: 'zophim',
+        name: 'Zophim',
+        description: 'Data này có cả anime, donghua và phim truyền hình .',
+        author: 'harunguyen',
+        url: 'https://raw.githubusercontent.com/harunguyenvn-dev/data/refs/heads/main/api/animehay/data.csv',
+        tags: ['Anime', 'Donghua', 'Phim']
+    },
+        {
+        id: 'Ani4u',
+        name: 'Ani4u',
+        description: 'Data này có cả anime, donghua ( data nay hoi loi mot chut )',
+        author: 'harunguyen',
+        url: 'https://raw.githubusercontent.com/harunguyenvn-dev/data/refs/heads/main/api/ani4u/data.csv',
+        tags: ['Anime', 'Ani4u', 'Phim']
     },
     {
         id: 'ophim-api',
         name: 'OPhim (API Tự Động)',
         description: 'Kết nối trực tiếp tới máy chủ OPhim. Cập nhật phim mới và phim chiếu rạp liên tục theo thời gian thực. Hỗ trợ HLS Streaming.',
         author: 'OPhim Team',
-        url: 'OPHIM_API', 
+        url: 'OPHIM_API', // Identifier đặc biệt để App nhận diện
         tags: ['API', 'Auto-Update', 'HLS', 'Huge DB'],
         download: "yes"
     },
     {
-        id: 'beta-source',
-        name: 'Kho Thử Nghiệm (Beta Channel)',
-        description: 'Cập nhật nhanh nhất các bộ anime mới ra mắt. Có thể chứa lỗi hoặc link chưa ổn định, dành cho người thích khám phá.',
-        author: 'AniW Labs',
-        url: 'https://raw.githubusercontent.com/harunguyenvn-dev/data/refs/heads/main/anime-beta.csv',
-        tags: ['Beta', 'New', 'Unstable'],
-        download: "no"
+        id: 'hentai 1',
+        name: 'hentai 1',
+        description: 'Kho data hentai với 2700 bộ xem không bị chán, nếu không xem được thì chọn mở link gốc nhé.',
+        author: 'harunguyen',
+        url: 'https://raw.githubusercontent.com/harunguyenvn-dev/data/refs/heads/main/api/hen2/data.csv',
+        tags: ['18+', 'hentai', '210']
     },
     {
-        id: 'retro-collection',
-        name: 'Góc Hoài Niệm (Retro & Classic)',
-        description: 'Tổng hợp những bộ anime huyền thoại từ thập niên 90s và 2000s. Dành cho những tâm hồn hoài cổ.',
-        author: 'OldSchoolWibu',
-        url: 'https://raw.githubusercontent.com/harunguyenvn-dev/data/refs/heads/main/anime-retro.csv',
-        tags: ['Retro', 'Classic', '90s'],
-        download: "no"
-    },
-    {
-        id: 'movie-special',
-        name: 'Rạp Chiếu Phim (Movies)',
-        description: 'Chuyên trang các Anime Movie chiếu rạp, chất lượng cao, âm thanh sống động.',
-        author: 'Cinephile',
-        url: 'https://raw.githubusercontent.com/harunguyenvn-dev/data/refs/heads/main/anime-movies.csv',
-        tags: ['Movie', '4K', 'High Quality'],
-        download: "no"
-    },
-    {
-        id: 'healing-chill',
-        name: 'Trạm Chữa Lành (Iyashikei)',
-        description: 'Những bộ anime nhẹ nhàng, đời thường (Slice of Life) giúp thư giãn sau ngày làm việc căng thẳng.',
-        author: 'Hân & Hoàng',
-        url: 'https://raw.githubusercontent.com/harunguyenvn-dev/data/refs/heads/main/anime-chill.csv',
-        tags: ['Chill', 'Relax', 'Slice of Life'],
-        download: "no"
+        id: 'hentai 2',
+        name: 'hentai 2',
+        description: 'Kho data hentai với 458 bộ .',
+        author: 'harunguyen',
+        url: 'https://raw.githubusercontent.com/harunguyenvn-dev/data/refs/heads/main/api/hen1/data.csv',
+        tags: ['18+', 'hentai', '210']
     }
 ];
