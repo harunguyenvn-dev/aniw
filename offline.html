@@ -1,0 +1,225 @@
+
+<!DOCTYPE html>
+<html lang="vi" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AniW - Chế độ Offline</title>
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <style>
+        body { background-color: #1f2937; color: #f3f4f6; font-family: sans-serif; }
+        .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .line-clamp-1 { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center p-4 md:p-8">
+
+    <!-- Header -->
+    <div class="w-full max-w-4xl flex justify-between items-center mb-8 pt-4">
+        <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-red-500 to-pink-600 flex items-center justify-center shadow-lg shadow-red-500/30">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-7 h-7 text-white">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" />
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold">AniW Offline</h1>
+                <p class="text-xs text-slate-400">Không có mạng? Không vấn đề!</p>
+            </div>
+        </div>
+        <button onclick="window.location.reload()" class="px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 transition-colors text-sm font-bold flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+            </svg>
+            Thử lại
+        </button>
+    </div>
+
+    <!-- Video List -->
+    <div id="video-container" class="w-full max-w-4xl grid grid-cols-1 gap-4">
+        <div class="text-center py-20 opacity-50">
+            <div class="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-white mx-auto mb-4"></div>
+            Đang tìm kiếm kho báu trong máy bạn...
+        </div>
+    </div>
+
+    <!-- Player Modal -->
+    <div id="player-modal" class="fixed inset-0 z-50 bg-black hidden flex-col justify-center">
+        <button onclick="closePlayer()" class="absolute top-4 left-4 z-50 p-3 bg-white/10 rounded-full text-white hover:bg-white/20">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+            </svg>
+        </button>
+        <video id="main-video" controls class="w-full h-full object-contain"></video>
+        <div class="absolute bottom-10 left-0 w-full text-center pointer-events-none p-4 bg-gradient-to-t from-black/80 to-transparent">
+            <h2 id="player-title" class="text-white text-xl font-bold drop-shadow-md"></h2>
+            <p id="player-subtitle" class="text-white/70 text-sm drop-shadow-md"></p>
+        </div>
+    </div>
+
+    <script>
+        // Database Logic
+        const DB_NAME = 'aniw-offline-db';
+        const STORE_NAME = 'videos';
+        let db;
+
+        const initDB = () => {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, 1);
+                request.onerror = (event) => reject("Database error: " + event.target.errorCode);
+                request.onsuccess = (event) => {
+                    db = event.target.result;
+                    resolve(db);
+                };
+                request.onupgradeneeded = (event) => {
+                    // Nếu chưa có DB thì tạo, nhưng ở đây ta chỉ đọc
+                    const db = event.target.result;
+                    if (!db.objectStoreNames.contains(STORE_NAME)) {
+                        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+                    }
+                };
+            });
+        };
+
+        const getAllVideos = async () => {
+            if (!db) await initDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([STORE_NAME], 'readonly');
+                const objectStore = transaction.objectStore(STORE_NAME);
+                const request = objectStore.getAll();
+                request.onsuccess = (event) => resolve(event.target.result);
+                request.onerror = (event) => reject(event.target.error);
+            });
+        };
+
+        const renderVideos = async () => {
+            const container = document.getElementById('video-container');
+            try {
+                const videos = await getAllVideos();
+                container.innerHTML = '';
+
+                if (videos.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center py-20 opacity-50 flex flex-col items-center">
+                            <p class="text-xl font-bold">Chưa có video nào!</p>
+                            <p class="text-sm mt-2">Hãy tải phim khi có mạng để xem tại đây.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Group videos
+                const groups = {};
+                videos.forEach(v => {
+                    if (!groups[v.animeName]) groups[v.animeName] = [];
+                    groups[v.animeName].push(v);
+                });
+
+                Object.keys(groups).forEach(animeName => {
+                    const groupDiv = document.createElement('div');
+                    groupDiv.className = 'glass rounded-3xl overflow-hidden mb-4';
+                    
+                    const header = document.createElement('div');
+                    header.className = 'p-4 bg-white/5 font-bold text-lg border-b border-white/5';
+                    header.innerText = animeName;
+                    groupDiv.appendChild(header);
+
+                    const list = document.createElement('div');
+                    list.className = 'p-2 space-y-2';
+
+                    groups[animeName].forEach(video => {
+                        const item = document.createElement('div');
+                        item.className = 'flex items-center justify-between p-3 rounded-2xl bg-slate-800 hover:bg-slate-700 cursor-pointer transition-colors';
+                        item.innerHTML = `
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center text-green-400">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4"><path fill-rule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653z" clip-rule="evenodd" /></svg>
+                                </div>
+                                <div>
+                                    <p class="font-bold text-sm">${video.episodeTitle}</p>
+                                    <p class="text-[10px] opacity-50 font-mono">${(video.blob.size / (1024 * 1024)).toFixed(1)} MB</p>
+                                </div>
+                            </div>
+                        `;
+                        item.onclick = () => playVideo(video);
+                        list.appendChild(item);
+                    });
+
+                    groupDiv.appendChild(list);
+                    container.appendChild(groupDiv);
+                });
+
+            } catch (e) {
+                container.innerHTML = `<div class="text-center text-red-400">Lỗi đọc dữ liệu: ${e}</div>`;
+            }
+        };
+
+        // Player Logic
+        let hlsInstance = null;
+        let activeBlobUrl = null;
+
+        const playVideo = (video) => {
+            const modal = document.getElementById('player-modal');
+            const videoEl = document.getElementById('main-video');
+            document.getElementById('player-title').innerText = video.episodeTitle;
+            document.getElementById('player-subtitle').innerText = video.animeName;
+            
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+
+            const blobUrl = URL.createObjectURL(video.blob);
+            activeBlobUrl = blobUrl;
+
+            if (video.fileType === 'video/mp2t' || video.fileType === 'video/ts') {
+                 if (Hls.isSupported()) {
+                    const virtualManifest = 
+`#EXTM3U
+#EXT-X-VERSION:3
+#EXT-X-TARGETDURATION:999999
+#EXT-X-MEDIA-SEQUENCE:0
+#EXTINF:999999.0,
+${blobUrl}
+#EXT-X-ENDLIST`;
+                    const manifestBlob = new Blob([virtualManifest], { type: 'application/vnd.apple.mpegurl' });
+                    const manifestUrl = URL.createObjectURL(manifestBlob);
+                    
+                    if(hlsInstance) hlsInstance.destroy();
+                    hlsInstance = new Hls();
+                    hlsInstance.loadSource(manifestUrl);
+                    hlsInstance.attachMedia(videoEl);
+                    hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => videoEl.play());
+                 }
+            } else {
+                videoEl.src = blobUrl;
+                videoEl.play();
+            }
+        };
+
+        const closePlayer = () => {
+            const modal = document.getElementById('player-modal');
+            const videoEl = document.getElementById('main-video');
+            videoEl.pause();
+            videoEl.src = "";
+            if(hlsInstance) {
+                hlsInstance.destroy();
+                hlsInstance = null;
+            }
+            if(activeBlobUrl) {
+                URL.revokeObjectURL(activeBlobUrl);
+            }
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        };
+
+        // Start
+        renderVideos();
+
+        // Check connection to jump back
+        window.addEventListener('online', () => {
+            window.location.reload();
+        });
+    </script>
+</body>
+</html>
