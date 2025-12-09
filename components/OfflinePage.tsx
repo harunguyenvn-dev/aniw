@@ -370,10 +370,10 @@ ${videoBlobUrl}
                         {resumePrompt && resumePrompt.show && (
                             <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in">
                                 <div className="bg-[#1a1a1a] border border-white/10 p-6 md:p-8 rounded-2xl shadow-2xl max-w-md w-full text-center mx-4">
-                                    <h3 className="text-xl md:text-2xl font-bold text-white mb-2">Chào mừng trở lại! 👋</h3>
+                                    <h3 className="text-xl md:text-2xl font-bold text-white mb-2">Chào mừng bạn trở lại! 👋</h3>
                                     <p className="text-slate-300 mb-6">
-                                        Hân thấy anh đang xem dở ở <span className="text-theme-lime font-mono font-bold">{formatTime(resumePrompt.time)}</span>.
-                                        <br/>Anh có muốn xem tiếp đoạn này không?
+                                        Bạn xem dở ở <span className="text-theme-lime font-mono font-bold">{formatTime(resumePrompt.time)}</span>.
+                                        <br/>Bạn có muốn xem tiếp đoạn này không?
                                     </p>
                                     <div className="flex flex-col gap-3">
                                         <button 
