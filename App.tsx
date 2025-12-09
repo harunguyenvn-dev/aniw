@@ -45,11 +45,11 @@ const FALLBACK_DATA: Anime[] = [
 ];
 
 const LiquidBackground: React.FC = () => (
-    <div className="fixed inset-0 -z-10 overflow-hidden bg-transparent">
+    <div className="fixed inset-0 -z-10 overflow-hidden bg-transparent pointer-events-none">
         <div className="absolute top-0 left-0 w-full h-full">
-            <div className="absolute top-1/4 left-1/4 w-[40vmin] h-[40vmin] bg-theme-mint/30 rounded-full filter blur-3xl animate-liquid-1 opacity-70"></div>
-            <div className="absolute bottom-1/4 right-1/4 w-[35vmin] h-[35vmin] bg-theme-lime/30 rounded-full filter blur-3xl animate-liquid-2 opacity-70"></div>
-            <div className="absolute bottom-1/2 left-1/3 w-[30vmin] h-[30vmin] bg-theme-olive/30 rounded-full filter blur-3xl animate-liquid-3 opacity-70"></div>
+            <div className="absolute top-1/4 left-1/4 w-[40vmin] h-[40vmin] bg-theme-mint/30 dark:bg-theme-mint/10 rounded-full filter blur-3xl animate-liquid-1 opacity-70 dark:opacity-20 dark:mix-blend-screen"></div>
+            <div className="absolute bottom-1/4 right-1/4 w-[35vmin] h-[35vmin] bg-theme-lime/30 dark:bg-theme-lime/10 rounded-full filter blur-3xl animate-liquid-2 opacity-70 dark:opacity-20 dark:mix-blend-screen"></div>
+            <div className="absolute bottom-1/2 left-1/3 w-[30vmin] h-[30vmin] bg-theme-olive/30 dark:bg-theme-olive/10 rounded-full filter blur-3xl animate-liquid-3 opacity-70 dark:opacity-20 dark:mix-blend-screen"></div>
         </div>
     </div>
 );
@@ -723,7 +723,7 @@ const App: React.FC = () => {
     }
 
     return (
-        <div className="relative min-h-screen w-full overflow-hidden text-slate-900 dark:text-slate-100 transition-colors duration-500">
+        <div className="relative min-h-screen w-full overflow-hidden text-slate-900 dark:text-slate-100 transition-colors duration-500 bg-white/50 dark:bg-black/80">
             <LiquidBackground />
             
             <Header 
