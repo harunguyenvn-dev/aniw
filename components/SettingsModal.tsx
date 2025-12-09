@@ -109,7 +109,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
   
   const modalClasses = ['glass-ui', 'liquid-glass'].includes(settings.theme)
     ? 'glass-card' 
-    : 'bg-theme-lightest dark:bg-[#1A3822] text-theme-darkest dark:text-theme-lightest';
+    : 'bg-theme-lightest dark:bg-theme-darkest text-theme-darkest dark:text-theme-lightest';
 
   const defaultCustomColors = {
       lightest: '#ECFDFF',
