@@ -2,18 +2,14 @@
 <html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/jpeg" href="https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/icon/ic_avatar5.jpg" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#1f2937" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    
-    <!-- Updated meta tags for PWA -->
-    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="AniW">
     <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/icon/ic_avatar5.jpg">
-    
-    <title>AniW CLB anime tại HPU</title>
+    <title>Anime Streaming</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -26,6 +22,17 @@
               'theme-lime': 'var(--theme-lime)',
               'theme-olive': 'var(--theme-olive)',
               'theme-darkest': 'var(--theme-darkest)',
+            },
+            animation: {
+                'blob': 'blob 7s infinite',
+            },
+            keyframes: {
+                blob: {
+                    '0%': { transform: 'translate(0px, 0px) scale(1)' },
+                    '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
+                    '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
+                    '100%': { transform: 'translate(0px, 0px) scale(1)' },
+                }
             }
           }
         }
@@ -212,7 +219,14 @@
 
       body {
         font-family: var(--font-family);
-        transition: background-color 0.3s, color 0.3s;
+        transition: background-color 0.5s ease-in-out, color 0.5s ease-in-out;
+        background-color: #f8fafc; /* Default light */
+        color: #0f172a;
+      }
+      
+      .dark body {
+        background-color: #0f172a; /* Default dark */
+        color: #f1f5f9;
       }
       
       .text-bolder p, .text-bolder span, .text-bolder li, .text-bolder button, .text-bolder div:not(:has(> h1, > h2, >h3, >h4)) {
@@ -235,23 +249,6 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          // Dynamically construct the Service Worker URL relative to the current origin
-          // This fixes issues where 'scriptURL' (e.g. from ai.studio) mismatches 'origin' (e.g. usercontent.goog)
-          // in preview environments.
-          const swUrl = new URL('service-worker.js', window.location.href).href;
-
-          navigator.serviceWorker.register(swUrl)
-            .then(registration => {
-              console.log('SW registered successfully with scope:', registration.scope);
-            })
-            .catch(registrationError => {
-              console.error('SW registration failed:', registrationError);
-            });
-        });
-      }
-    </script>
+    <!-- Service Worker registration removed to prevent origin mismatch errors in preview environments -->
   </body>
 </html>
