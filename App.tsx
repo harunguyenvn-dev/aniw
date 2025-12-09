@@ -28,7 +28,7 @@ const ANIME_CSV_URL = 'https://raw.githubusercontent.com/harunguyenvn-dev/data/r
 const OPHIM_LIST_API_BASE = 'https://ophim1.com/danh-sach/phim-moi-cap-nhat';
 const OPHIM_DETAIL_API_BASE = 'https://ophim1.com/phim/';
 
-const OPHIM_PAGE_DEPTH = 50; 
+const OPHIM_PAGE_DEPTH = 1370; 
 const CACHE_DURATION = 24 * 60 * 60 * 1000;
 
 const FALLBACK_DATA: Anime[] = [
