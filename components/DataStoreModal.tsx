@@ -138,7 +138,7 @@ const DataStoreModal: React.FC<DataStoreModalProps> = ({ isOpen, onClose, settin
                  {/* Footer Hint */}
                  <div className="p-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-center">
                     <p className="text-xs text-slate-500">
-                       Nếu thấy dự án hay hãy donate 20k cho dự án nhé
+                        Dữ liệu được tải từ file nội bộ (Local Store). <a href="#" className="text-indigo-500 hover:underline font-bold">Chỉnh sửa file sources.ts</a>
                     </p>
                 </div>
             </div>

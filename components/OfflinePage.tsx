@@ -14,7 +14,7 @@ const OfflinePage: React.FC<OfflinePageProps> = ({ settings, onBack }) => {
     const [videos, setVideos] = useState<OfflineVideo[]>([]);
     const [loading, setLoading] = useState(true);
     const [playingVideo, setPlayingVideo] = useState<OfflineVideo | null>(null);
-    const [expandedGroups, setExpandedGroups] = useState<{[key: string]: boolean}>({});
+    const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
     
     // Refs for player management
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -139,14 +139,6 @@ ${videoBlobUrl}
             });
 
             setVideos(loadedVideos);
-            
-            // Auto expand all groups initially
-            const initialExpandedState: {[key: string]: boolean} = {};
-            loadedVideos.forEach(v => {
-                initialExpandedState[v.animeName] = true;
-            });
-            setExpandedGroups(initialExpandedState);
-
         } catch (error) {
             console.error("Failed to load offline videos", error);
         } finally {
@@ -190,53 +182,42 @@ ${videoBlobUrl}
         setPlayingVideo(null);
     };
     
-    const toggleGroup = (animeName: string) => {
-        setExpandedGroups(prev => ({
-            ...prev,
-            [animeName]: !prev[animeName]
-        }));
-    };
-
-    // --- GROUPING & SORTING LOGIC ---
+    // Group videos by Anime Name
     const groupedVideos = useMemo(() => {
         const groups: { [key: string]: OfflineVideo[] } = {};
-        
-        // 1. Group by Anime Name
         videos.forEach(video => {
             if (!groups[video.animeName]) {
                 groups[video.animeName] = [];
             }
             groups[video.animeName].push(video);
         });
-
-        // 2. Sort Episodes naturally within each group (Ep 1, Ep 2, Ep 10...)
-        Object.keys(groups).forEach(animeName => {
-            groups[animeName].sort((a, b) => {
-                // Try to extract numbers for better sorting
-                const getNumber = (str: string) => {
-                    const match = str.match(/\d+(\.\d+)?/);
-                    return match ? parseFloat(match[0]) : 0;
-                };
-                return getNumber(a.episodeTitle) - getNumber(b.episodeTitle);
-            });
-        });
-
-        // 3. Sort Anime Groups Alphabetically
-        const sortedGroups = Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0]));
         
-        return sortedGroups;
+        // Sort episodes within groups if needed (optional)
+        // Object.keys(groups).forEach(key => {
+        //     groups[key].sort((a, b) => ...);
+        // });
+        
+        return groups;
     }, [videos]);
 
+    const toggleGroup = (animeName: string) => {
+        setExpandedGroups(prev => 
+            prev.includes(animeName) 
+                ? prev.filter(name => name !== animeName) 
+                : [...prev, animeName]
+        );
+    };
 
     const isGlass = ['glass-ui', 'liquid-glass'].includes(settings.theme);
     const containerBg = isGlass ? 'glass-card' : 'bg-theme-lightest dark:bg-theme-darkest';
     const textColor = 'text-theme-darkest dark:text-theme-lightest';
-    const sectionBg = isGlass ? 'bg-white/10' : 'bg-slate-200/50 dark:bg-slate-800/50';
+    const cardBg = isGlass ? 'bg-white/30 dark:bg-black/30' : 'bg-[#e9e9e5] dark:bg-slate-800'; // Beige-ish color for light mode to match image
+    const contentBg = isGlass ? 'bg-white/10 dark:bg-white/5' : 'bg-[#f4f4f1] dark:bg-slate-700/50';
 
     return (
         <div className={`fixed inset-0 z-50 overflow-y-auto ${containerBg} ${textColor} p-4 md:p-8 pt-20`}>
             {/* Header */}
-            <div className="max-w-6xl mx-auto mb-8 flex items-center justify-between">
+            <div className="max-w-4xl mx-auto mb-8 flex items-center justify-between">
                 <div>
                      <h1 className="text-3xl font-black mb-2 flex items-center gap-3">
                         <DatabaseIcon className="w-8 h-8 text-theme-lime" />
@@ -283,8 +264,8 @@ ${videoBlobUrl}
                 </div>
             )}
 
-            {/* Content Area */}
-            <div className="max-w-6xl mx-auto">
+            {/* Video List (Grouped) */}
+            <div className="max-w-4xl mx-auto pb-20">
                 {loading ? (
                     <div className="flex justify-center py-20">
                          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-theme-lime"></div>
@@ -293,82 +274,80 @@ ${videoBlobUrl}
                     <div className="text-center py-20 opacity-50 flex flex-col items-center">
                         <DatabaseIcon className="w-20 h-20 mb-4" />
                         <p className="text-xl font-bold">Chưa có video nào được tải về!</p>
+                        <p className="text-sm mt-2">Hãy tải phim khi có mạng để xem tại đây nhé.</p>
                     </div>
                 ) : (
-                    <div className="space-y-8">
-                        {groupedVideos.map(([animeName, episodes]) => (
-                            <div key={animeName} className={`rounded-3xl overflow-hidden ${sectionBg} border border-slate-300/30 dark:border-slate-700/30 shadow-sm`}>
-                                {/* Group Header */}
-                                <button 
-                                    onClick={() => toggleGroup(animeName)}
-                                    className="w-full px-6 py-4 flex items-center justify-between hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-xl bg-theme-lime flex items-center justify-center text-theme-darkest font-bold text-lg shadow-sm">
-                                            {animeName.charAt(0).toUpperCase()}
+                    <div className="flex flex-col gap-4">
+                        {Object.entries(groupedVideos).map(([animeName, eps]) => {
+                            const isExpanded = expandedGroups.includes(animeName);
+                            return (
+                                <div key={animeName} className={`rounded-3xl overflow-hidden shadow-sm transition-all duration-300 ${cardBg}`}>
+                                    {/* Accordion Header */}
+                                    <button 
+                                        onClick={() => toggleGroup(animeName)}
+                                        className="w-full p-4 flex items-center justify-between hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                                    >
+                                        <div className="flex items-center gap-4">
+                                            {/* "M" Icon square like in the user image */}
+                                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-pink-400 to-rose-500 flex items-center justify-center text-white font-black text-xl shadow-lg shadow-pink-500/30 flex-shrink-0">
+                                                M
+                                            </div>
+                                            <div className="text-left">
+                                                <h3 className="font-bold text-lg leading-tight line-clamp-1">{animeName}</h3>
+                                                <p className="text-xs font-medium opacity-60 font-mono mt-0.5">{eps.length} tập phim</p>
+                                            </div>
                                         </div>
-                                        <div className="text-left">
-                                            <h2 className="text-lg md:text-xl font-bold">{animeName}</h2>
-                                            <p className="text-xs opacity-60 font-mono">{episodes.length} tập phim</p>
+                                        <div className={`p-2 rounded-full transition-transform duration-300 ${isExpanded ? 'rotate-180 bg-black/5 dark:bg-white/10' : ''}`}>
+                                            <ChevronDownIcon className="w-5 h-5 opacity-60" />
                                         </div>
-                                    </div>
-                                    <div className={`p-2 rounded-full transition-transform duration-300 ${expandedGroups[animeName] ? 'rotate-180' : ''}`}>
-                                        <ChevronDownIcon className="w-6 h-6 opacity-60" />
-                                    </div>
-                                </button>
+                                    </button>
 
-                                {/* Episodes Grid */}
-                                {expandedGroups[animeName] && (
-                                    <div className="p-4 md:p-6 bg-white/50 dark:bg-black/20">
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
-                                            {episodes.map(video => (
-                                                <div key={video.id} className="group relative rounded-2xl overflow-hidden bg-slate-100 dark:bg-slate-900 shadow-md border border-slate-200 dark:border-slate-700 hover:shadow-xl hover:border-theme-lime/50 transition-all hover:-translate-y-1 cursor-pointer" onClick={() => setPlayingVideo(video)}>
-                                                    <div className="aspect-video bg-slate-300 dark:bg-black flex items-center justify-center relative overflow-hidden">
-                                                        <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center group-hover:scale-110 transition-transform z-10 border border-white/30">
-                                                            <PlayIcon className="w-6 h-6 text-white ml-1" />
+                                    {/* Episodes List (Content) */}
+                                    <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                                        <div className={`p-2 space-y-2 ${contentBg}`}>
+                                            {eps.map((video) => (
+                                                <div 
+                                                    key={video.id} 
+                                                    onClick={() => setPlayingVideo(video)}
+                                                    className="flex items-center justify-between p-3 rounded-2xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-100 dark:border-slate-700 shadow-sm transition-all cursor-pointer group"
+                                                >
+                                                    <div className="flex items-center gap-3 overflow-hidden">
+                                                        <div className="w-8 h-8 rounded-full bg-theme-lime/20 flex items-center justify-center text-theme-olive dark:text-theme-lime group-hover:scale-110 transition-transform flex-shrink-0">
+                                                            <PlayIcon className="w-4 h-4 ml-0.5" />
                                                         </div>
-                                                        
-                                                        {/* Pattern background */}
-                                                        <div className="absolute inset-0 opacity-30 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-900 via-slate-900 to-black"></div>
-                                                        
-                                                        {video.fileType === 'video/mp2t' && (
-                                                            <span className="absolute top-2 right-2 bg-yellow-500 text-black text-[10px] font-bold px-2 py-0.5 rounded shadow-sm z-10">TS</span>
-                                                        )}
-                                                    </div>
-                                                    <div className="p-3">
-                                                        <div className="flex justify-between items-start mb-2">
-                                                            <h3 className="font-bold text-base line-clamp-1 group-hover:text-theme-olive dark:group-hover:text-theme-lime transition-colors">{video.episodeTitle}</h3>
-                                                        </div>
-                                                        
-                                                        <div className="flex justify-between items-end">
-                                                             <p className="text-xs opacity-50 font-mono">
-                                                                {(video.blob.size / (1024 * 1024)).toFixed(1)} MB
+                                                        <div className="min-w-0">
+                                                            <p className="font-bold text-sm truncate">{video.episodeTitle}</p>
+                                                            <p className="text-[10px] opacity-50 font-mono">
+                                                                {new Date(video.savedAt).toLocaleDateString()} • {(video.blob.size / (1024 * 1024)).toFixed(1)} MB
+                                                                {video.fileType === 'video/mp2t' && <span className="ml-2 px-1.5 py-0.5 rounded bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300 font-bold">TS</span>}
                                                             </p>
-                                                            <div className="flex gap-1">
-                                                                <button 
-                                                                    onClick={(e) => handleSaveToDevice(video, e)}
-                                                                    className="p-1.5 text-indigo-500 hover:bg-indigo-500/10 rounded-lg transition-colors"
-                                                                    title="Lưu file về máy"
-                                                                >
-                                                                    <DownloadIcon className="w-4 h-4" />
-                                                                </button>
-                                                                <button 
-                                                                    onClick={(e) => { e.stopPropagation(); handleDelete(video.id); }}
-                                                                    className="p-1.5 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
-                                                                    title="Xóa video"
-                                                                >
-                                                                    <TrashIcon className="w-4 h-4" />
-                                                                </button>
-                                                            </div>
                                                         </div>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <button 
+                                                            onClick={(e) => handleSaveToDevice(video, e)}
+                                                            className="p-2 text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-full transition-colors"
+                                                            title="Lưu file về máy"
+                                                        >
+                                                            <DownloadIcon className="w-5 h-5" />
+                                                        </button>
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); handleDelete(video.id); }}
+                                                            className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-full transition-colors"
+                                                            title="Xóa video"
+                                                        >
+                                                            <TrashIcon className="w-5 h-5" />
+                                                        </button>
                                                     </div>
                                                 </div>
                                             ))}
+                                            <div className="h-2"></div>
                                         </div>
                                     </div>
-                                )}
-                            </div>
-                        ))}
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
             </div>

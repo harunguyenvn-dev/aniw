@@ -9,7 +9,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/icon/ic_avatar5.jpg">
-    <title>Anime Streaming</title>
+    <title>AniW CLB anime tại HPU</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -22,17 +22,6 @@
               'theme-lime': 'var(--theme-lime)',
               'theme-olive': 'var(--theme-olive)',
               'theme-darkest': 'var(--theme-darkest)',
-            },
-            animation: {
-                'blob': 'blob 7s infinite',
-            },
-            keyframes: {
-                blob: {
-                    '0%': { transform: 'translate(0px, 0px) scale(1)' },
-                    '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
-                    '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
-                    '100%': { transform: 'translate(0px, 0px) scale(1)' },
-                }
             }
           }
         }
@@ -219,14 +208,7 @@
 
       body {
         font-family: var(--font-family);
-        transition: background-color 0.5s ease-in-out, color 0.5s ease-in-out;
-        background-color: #f8fafc; /* Default light */
-        color: #0f172a;
-      }
-      
-      .dark body {
-        background-color: #0f172a; /* Default dark */
-        color: #f1f5f9;
+        transition: background-color 0.3s, color 0.3s;
       }
       
       .text-bolder p, .text-bolder span, .text-bolder li, .text-bolder button, .text-bolder div:not(:has(> h1, > h2, >h3, >h4)) {
@@ -245,6 +227,7 @@
         font-style: normal !important;
       }
     </style>
+<link rel="stylesheet" href="/index.css">
 </head>
   <body>
     <div id="root"></div>

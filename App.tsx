@@ -21,18 +21,15 @@ import DataStoreModal from './components/DataStoreModal';
 import OfflinePage from './components/OfflinePage';
 import { Anime, Episode, Settings, View, DownloadTask } from './types';
 import { DATA_SOURCES } from './data/sources';
+import { WifiIcon, WifiSlashIcon } from './components/icons';
 
 const ANIME_CSV_URL = 'https://raw.githubusercontent.com/harunguyenvn-dev/data/refs/heads/main/anime.csv';
 
 const OPHIM_LIST_API_BASE = 'https://ophim1.com/danh-sach/phim-moi-cap-nhat';
 const OPHIM_DETAIL_API_BASE = 'https://ophim1.com/phim/';
 
-const OPHIM_PAGE_DEPTH = 1370; 
+const OPHIM_PAGE_DEPTH = 50; 
 const CACHE_DURATION = 24 * 60 * 60 * 1000;
-
-// Keys for temporary storage (Resumable capability)
-const TEMP_OPHIM_DATA_KEY = 'ophim_temp_data';
-const TEMP_OPHIM_PAGE_KEY = 'ophim_temp_page';
 
 const FALLBACK_DATA: Anime[] = [
   {
@@ -45,11 +42,11 @@ const FALLBACK_DATA: Anime[] = [
 ];
 
 const LiquidBackground: React.FC = () => (
-    <div className="fixed inset-0 -z-10 overflow-hidden bg-transparent pointer-events-none">
+    <div className="fixed inset-0 -z-10 overflow-hidden bg-transparent">
         <div className="absolute top-0 left-0 w-full h-full">
-            <div className="absolute top-1/4 left-1/4 w-[40vmin] h-[40vmin] bg-theme-mint/30 dark:bg-theme-mint/10 rounded-full filter blur-3xl animate-liquid-1 opacity-70 dark:opacity-20 dark:mix-blend-screen"></div>
-            <div className="absolute bottom-1/4 right-1/4 w-[35vmin] h-[35vmin] bg-theme-lime/30 dark:bg-theme-lime/10 rounded-full filter blur-3xl animate-liquid-2 opacity-70 dark:opacity-20 dark:mix-blend-screen"></div>
-            <div className="absolute bottom-1/2 left-1/3 w-[30vmin] h-[30vmin] bg-theme-olive/30 dark:bg-theme-olive/10 rounded-full filter blur-3xl animate-liquid-3 opacity-70 dark:opacity-20 dark:mix-blend-screen"></div>
+            <div className="absolute top-1/4 left-1/4 w-[40vmin] h-[40vmin] bg-theme-mint/30 rounded-full filter blur-3xl animate-liquid-1 opacity-70"></div>
+            <div className="absolute bottom-1/4 right-1/4 w-[35vmin] h-[35vmin] bg-theme-lime/30 rounded-full filter blur-3xl animate-liquid-2 opacity-70"></div>
+            <div className="absolute bottom-1/2 left-1/3 w-[30vmin] h-[30vmin] bg-theme-olive/30 rounded-full filter blur-3xl animate-liquid-3 opacity-70"></div>
         </div>
     </div>
 );
@@ -72,7 +69,9 @@ const App: React.FC = () => {
     const [isBackgroundFetching, setIsBackgroundFetching] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [view, setView] = useState<View>('home');
+    
     const [isOffline, setIsOffline] = useState(!navigator.onLine);
+    const [showOnlineToast, setShowOnlineToast] = useState(false);
     
     // --- DOWNLOAD MANAGER STATE ---
     const [downloadQueue, setDownloadQueue] = useState<DownloadTask[]>([]);
@@ -91,7 +90,11 @@ const App: React.FC = () => {
 
     // Detect offline status
     useEffect(() => {
-        const handleOnline = () => setIsOffline(false);
+        const handleOnline = () => {
+            setIsOffline(false);
+            setShowOnlineToast(true);
+            setTimeout(() => setShowOnlineToast(false), 3000);
+        };
         const handleOffline = () => {
             setIsOffline(true);
         };
@@ -392,38 +395,10 @@ const App: React.FC = () => {
         const runOPhimCrawler = async (isUpdateMode: boolean) => {
             try {
                 setIsBackgroundFetching(true);
+                setLoadingStatus("Đang kết nối OPhim...");
                 
-                // --- RESUME LOGIC START ---
-                // Kiểm tra xem có dữ liệu tạm thời chưa hoàn thành không
+                const collectedAnime: Anime[] = [];
                 let currentPage = 1;
-                let collectedAnime: Anime[] = [];
-                
-                const savedTempPage = localStorage.getItem(TEMP_OPHIM_PAGE_KEY);
-                const savedTempData = localStorage.getItem(TEMP_OPHIM_DATA_KEY);
-                
-                if (savedTempPage && savedTempData) {
-                    try {
-                        currentPage = parseInt(savedTempPage);
-                        collectedAnime = JSON.parse(savedTempData);
-                        console.log(`đang khôi phục phiên làm việc từ trang ${currentPage}...`);
-                        // Nếu không phải chế độ update ngầm, hiển thị ngay dữ liệu đã có
-                        if (!isUpdateMode) {
-                             setAnimeList(collectedAnime);
-                             processData(collectedAnime);
-                        }
-                    } catch (e) {
-                        console.warn("Lỗi khi khôi phục dữ liệu tạm, sẽ tải lại từ đầu.");
-                        currentPage = 1;
-                        collectedAnime = [];
-                    }
-                }
-                // --- RESUME LOGIC END ---
-
-                if (currentPage === 1) {
-                     setLoadingStatus("Đang kết nối OPhim...");
-                } else {
-                     setLoadingStatus(`đang tiếp tục tải từ trang ${currentPage}...`);
-                }
                 
                 while (currentPage <= OPHIM_PAGE_DEPTH) {
                     try {
@@ -470,48 +445,42 @@ const App: React.FC = () => {
                             }
                         }
                         
-                        // Merge page data
-                        collectedAnime.push(...pageAnime);
-
-                        // --- SAVE CHECKPOINT START ---
-                        // Lưu lại trạng thái ngay sau khi tải xong một trang
-                        localStorage.setItem(TEMP_OPHIM_DATA_KEY, JSON.stringify(collectedAnime));
-                        localStorage.setItem(TEMP_OPHIM_PAGE_KEY, (currentPage + 1).toString());
-                        // --- SAVE CHECKPOINT END ---
-                        
-                        if (!isUpdateMode) {
-                            // Cập nhật UI dần dần để người dùng không phải chờ hết 50 trang
-                            setAnimeList([...collectedAnime]);
-                            processData([...collectedAnime]);
+                        if (isUpdateMode) {
+                            collectedAnime.push(...pageAnime);
+                        } else {
+                            setAnimeList(prev => {
+                                const newData = [...prev, ...pageAnime];
+                                processData(newData);
+                                return newData;
+                            });
                         }
                         
                         currentPage++;
                         await new Promise(resolve => setTimeout(resolve, 50)); 
                     } catch (err) {
                         console.error(`Error processing page ${currentPage}`, err);
-                        
                         currentPage++; 
-                        // Vẫn lưu checkpoint để không bị kẹt mãi
-                        localStorage.setItem(TEMP_OPHIM_PAGE_KEY, currentPage.toString());
                     }
                 }
                 
-                // Hoàn tất toàn bộ quá trình
                 if (isUpdateMode && collectedAnime.length > 0) {
                     setAnimeList(collectedAnime);
                     processData(collectedAnime);
                 }
 
-                // Lưu cache chính thức
-                localStorage.setItem('ophim_cache', JSON.stringify(collectedAnime));
-                localStorage.setItem('ophim_timestamp', Date.now().toString());
-
-                // --- CLEANUP CHECKPOINT START ---
-                // Xóa dữ liệu tạm vì đã tải xong thành công
-                localStorage.removeItem(TEMP_OPHIM_DATA_KEY);
-                localStorage.removeItem(TEMP_OPHIM_PAGE_KEY);
-                // --- CLEANUP CHECKPOINT END ---
+                if (!isUpdateMode) {
+                    const finalData = await new Promise<Anime[]>(resolve => {
+                        setAnimeList(current => {
+                            resolve(current);
+                            return current;
+                        });
+                    });
+                    localStorage.setItem('ophim_cache', JSON.stringify(finalData));
+                } else {
+                    localStorage.setItem('ophim_cache', JSON.stringify(collectedAnime));
+                }
                 
+                localStorage.setItem('ophim_timestamp', Date.now().toString());
                 setIsBackgroundFetching(false);
                 setLoadingStatus("");
                 
@@ -530,16 +499,6 @@ const App: React.FC = () => {
             const urlToTry = settings.customAnimeDataUrl || ANIME_CSV_URL;
 
             if (urlToTry === 'OPHIM_API') {
-                // Ưu tiên kiểm tra xem có dữ liệu tạm (đang tải dở) không
-                const hasTempData = localStorage.getItem(TEMP_OPHIM_PAGE_KEY);
-
-                if (hasTempData) {
-                     // Nếu có dữ liệu dở dang, Resume ngay lập tức không cần check cache cũ
-                     console.log("Phát hiện phiên tải trước chưa hoàn tất, đang tiếp tục tải...");
-                     runOPhimCrawler(false);
-                     return;
-                }
-
                 const cachedData = localStorage.getItem('ophim_cache');
                 const cachedTime = localStorage.getItem('ophim_timestamp');
                 let hasCache = false;
@@ -569,7 +528,6 @@ const App: React.FC = () => {
                     runOPhimCrawler(false);
                 }
             } else {
-                // Logic cho CSV thường
                 try {
                     const data = await fetchAndParseCSV(urlToTry);
                     processData(data);
@@ -664,156 +622,425 @@ const App: React.FC = () => {
                         !line.trim().startsWith('#') && 
                         (line.trim().includes('.m3u8'))
                     );
-                    
+
                     if (childPlaylistLine) {
-                        currentPlaylistUrl = resolveUrl(currentPlaylistUrl, childPlaylistLine.trim());
+                        const newUrl = resolveUrl(currentPlaylistUrl, childPlaylistLine.trim());
+                        updateTask({ progress: `Đang tìm luồng chất lượng cao (${retryCount})...` });
+                        currentPlaylistUrl = newUrl;
                     } else {
-                        // Look for segments
-                        const segments = lines.filter(line => 
-                            line.trim().length > 0 && 
-                            !line.trim().startsWith('#')
-                        );
-                        if (segments.length > 0) {
-                            segmentUrls = segments.map(seg => resolveUrl(currentPlaylistUrl, seg.trim()));
-                            foundSegments = true;
-                        } else {
-                             throw new Error("No segments found in M3U8");
-                        }
+                        foundSegments = true;
+                        segmentUrls = lines
+                            .map(line => line.trim())
+                            .filter(line => line && !line.startsWith('#'))
+                            .map(line => resolveUrl(currentPlaylistUrl, line));
                     }
                 }
 
-                if (foundSegments && segmentUrls.length > 0) {
-                     // Simple mock for HLS download since full implementation is complex for this context
-                     updateTask({ status: 'error', progress: 'Chức năng tải M3U8 chưa khả dụng trên web.' });
+                if (segmentUrls.length === 0) throw new Error("No video segments found in playlist");
+
+                const chunks: Blob[] = [];
+                for (let i = 0; i < segmentUrls.length; i++) {
+                    const percent = Math.round(((i + 1) / segmentUrls.length) * 100);
+                    updateTask({ progress: `Đang tải đoạn ${i + 1}/${segmentUrls.length} (${percent}%)` });
+                    
+                    try {
+                        const segRes = await fetch(segmentUrls[i]);
+                        if (!segRes.ok) throw new Error(`Segment fetch failed: ${segmentUrls[i]}`);
+                        const blob = await segRes.blob();
+                        chunks.push(blob);
+                    } catch (e) {
+                        console.warn(`Failed segment ${i}, skipping...`, e);
+                    }
                 }
+
+                updateTask({ progress: 'Đang ghép nối video...' });
+                const finalBlob = new Blob(chunks, { type: 'video/mp2t' });
+                await saveToIndexedDB(finalBlob, task, 'video/mp2t');
+
             } else {
-                // Direct file (mp4 etc)
+                updateTask({ progress: 'Đang tải file...' });
                 const response = await fetch(episode.link);
-                if (!response.ok) throw new Error("Download failed");
-                const blob = await response.blob();
-                await saveToIndexedDB(blob, task, blob.type || 'video/mp4');
-                updateTask({ status: 'completed', progress: 'Hoàn tất' });
+                if (!response.ok) throw new Error("Network error");
+                
+                const reader = response.body?.getReader();
+                const contentLength = +response.headers.get('Content-Length')!;
+                let receivedLength = 0;
+                let chunks = []; 
+
+                if (reader && contentLength) {
+                    while(true) {
+                        const {done, value} = await reader.read();
+                        if (done) break;
+                        chunks.push(value);
+                        receivedLength += value.length;
+                        updateTask({ progress: `Đang tải... ${Math.round((receivedLength/contentLength) * 100)}%` });
+                    }
+                    const blob = new Blob(chunks);
+                    await saveToIndexedDB(blob, task, blob.type);
+                } else {
+                    const blob = await response.blob();
+                    await saveToIndexedDB(blob, task, blob.type);
+                }
             }
-        } catch (error: any) {
-            console.error("Download error", error);
-            updateTask({ status: 'error', progress: 'Lỗi: ' + error.message });
-        } finally {
-             // Process next
-             const nextTask = downloadQueue.find(t => t.status === 'pending');
-             if (nextTask) {
-                 // Trigger next via effect
-             } else {
-                 processingRef.current = false;
-             }
+            updateTask({ status: 'completed', progress: 'Hoàn tất' });
+            // Clean up completed tasks after a delay
+            setTimeout(() => {
+                setDownloadQueue(prev => prev.filter(t => t.id !== task.id));
+            }, 5000);
+
+        } catch (error) {
+            console.error("Download failed:", error);
+            updateTask({ status: 'error', progress: 'Lỗi tải xuống' });
+             setTimeout(() => {
+                setDownloadQueue(prev => prev.filter(t => t.id !== task.id));
+            }, 5000);
         }
     };
 
+    // Queue Processor
     useEffect(() => {
-        if (!processingRef.current) {
+        const processQueue = async () => {
+            if (processingRef.current) return;
+            
+            // Find next pending task
             const nextTask = downloadQueue.find(t => t.status === 'pending');
-            if (nextTask) {
-                processingRef.current = true;
-                processDownloadTask(nextTask);
-            }
-        }
+            if (!nextTask) return;
+
+            // Check if we are already downloading something
+            const isDownloading = downloadQueue.some(t => t.status === 'downloading');
+            if (isDownloading) return; // Process one at a time for stability
+
+            processingRef.current = true;
+            await processDownloadTask(nextTask);
+            processingRef.current = false;
+        };
+
+        const interval = setInterval(processQueue, 1000);
+        return () => clearInterval(interval);
     }, [downloadQueue]);
 
-    if (isLoadingApp) {
-        return <SplashScreen finishLoading={() => setIsLoadingApp(false)} />;
+
+    const addToQueue = (task: DownloadTask) => {
+        if (downloadQueue.some(t => t.id === task.id)) return; // Avoid duplicates
+        setDownloadQueue(prev => [...prev, task]);
+    };
+
+    // Check if download is allowed for current source
+    const isDownloadAllowed = useMemo(() => {
+        const currentUrl = settings.customAnimeDataUrl || ANIME_CSV_URL;
+        const matchedSource = DATA_SOURCES.find(s => s.url === currentUrl);
+        return matchedSource?.download === 'yes';
+    }, [settings.customAnimeDataUrl]);
+
+    const handleSelectAnime = (anime: Anime) => {
+        setSelectedAnime(anime);
+        setIsSearchOpen(false);
+        setView('home');
+    };
+    
+    const handleViewChange = (newView: View) => {
+        setSelectedAnime(null);
+        setView(newView);
+
+        if (audioRef.current) {
+            if (newView === 'ranking') {
+                audioRef.current.src = 'https://github.com/harunguyenvn-dev/data/raw/refs/heads/main/test/examp.mp3';
+                audioRef.current.loop = true;
+                audioRef.current.play().catch(e => console.error("Audio playback failed:", e));
+            } else if (newView === 'schedule') {
+                audioRef.current.src = 'https://github.com/harunguyenvn-dev/data/raw/refs/heads/main/test/c.m4a';
+                audioRef.current.loop = true;
+                audioRef.current.play().catch(e => console.error("Audio playback failed:", e));
+            } else if (newView === 'glossary') {
+                 audioRef.current.src = 'https://github.com/harunguyenvn-dev/data/raw/refs/heads/main/test/Dreaming%20%5BDFVuYoDVS_g%5D.m4a';
+                 audioRef.current.loop = true;
+                 audioRef.current.play().catch(e => console.error("Audio playback failed:", e));
+            } else if (newView === 'music') {
+                 audioRef.current.src = 'https://github.com/harunguyenvn-dev/data/raw/refs/heads/main/test/lofi%20songs%20for%20slow%20days%20%5BAzV77KFsLn4%5D.m4a';
+                 audioRef.current.loop = true;
+                 audioRef.current.play().catch(e => console.error("Audio playback failed:", e));
+            } else {
+                audioRef.current.pause();
+            }
+        }
+    };
+
+    const handleClosePlayer = () => {
+        setSelectedAnime(null);
+    };
+
+    const renderContent = () => {
+        if (view === 'relaxation') {
+            return <RelaxationPage settings={settings} onClose={() => handleViewChange('home')} />;
+        }
+        if (view === 'todo-list') {
+            return <TodoListPage settings={settings} onBack={() => handleViewChange('home')} />;
+        }
+        if (view === 'offline-videos') {
+            return <OfflinePage settings={settings} onBack={() => handleViewChange('home')} />;
+        }
+
+        const getContentPadding = (viewType: 'player' | 'main') => {
+            const padding = {
+                top: viewType === 'player' ? 'pt-24 px-4 pb-8' : 'pt-24 px-4 sm:px-8 pb-16',
+                bottom: viewType === 'player' ? 'pb-24 px-4 pt-8' : 'pb-24 px-4 sm:px-8 pt-16',
+                left: viewType === 'player' ? 'py-8 pl-16 md:pl-24 pr-4' : 'py-16 pl-16 md:pl-24 pr-4 sm:pr-8',
+                right: viewType === 'player' ? 'py-8 pr-16 md:pr-24 pl-4' : 'py-16 pr-16 md:pr-24 pl-4 sm:pl-8',
+            }
+            return padding[settings.headerPosition];
+        }
+
+        const getHomePadding = () => {
+            if (settings.headerStyle === 'sidebar-curved') {
+                if (settings.headerPosition === 'left') return 'pl-20 p-4';
+                if (settings.headerPosition === 'right') return 'pr-20 p-4';
+                if (settings.headerPosition === 'top') return 'pt-20 p-4';
+                if (settings.headerPosition === 'bottom') return 'pb-20 p-4';
+            }
+            if (settings.headerStyle === 'focus-ui') {
+                 if (settings.headerPosition === 'top') return 'pt-24 p-4';
+                 return 'pb-24 p-4';
+            }
+
+            switch (settings.headerPosition) {
+                case 'top': return 'pt-24 p-4';
+                case 'bottom': return 'pb-24 p-4';
+                case 'left': return 'pl-16 md:pl-24 p-4';
+                case 'right': return 'pr-16 md:pr-24 p-4';
+                default: return 'p-4';
+            }
+        };
+
+        let containerClass = '';
+        let playerContainerClass = '';
+
+        if (settings.headerStyle === 'sidebar-curved') {
+             if (settings.headerPosition === 'left') {
+                containerClass = 'pl-24 p-4 sm:p-8';
+                playerContainerClass = 'pl-24 pr-4 py-8';
+             } else if (settings.headerPosition === 'right') {
+                containerClass = 'pr-24 p-4 sm:p-8';
+                playerContainerClass = 'pr-24 pl-4 py-8';
+             } else if (settings.headerPosition === 'top') {
+                containerClass = 'pt-24 p-4 sm:p-8';
+                playerContainerClass = 'pt-24 px-4 pb-8';
+             } else {
+                containerClass = 'pb-24 p-4 sm:p-8';
+                playerContainerClass = 'pb-24 px-4 pt-8';
+             }
+        } else if (settings.headerStyle === 'focus-ui') {
+            if (settings.headerPosition === 'top') {
+                containerClass = 'pt-24 p-4 sm:p-8';
+                playerContainerClass = 'pt-24 px-4 pb-8';
+            } else {
+                containerClass = 'pb-24 p-4 sm:p-8';
+                playerContainerClass = 'pb-24 px-4 pt-8';
+            }
+        } else {
+             containerClass = getContentPadding('main');
+             playerContainerClass = getContentPadding('player');
+        }
+
+        
+        if (view === 'glossary') {
+            return <Glossary containerClassName={containerClass} settings={settings} />;
+        }
+        if (view === 'ranking') {
+            return <Ranking settings={settings} containerClassName={containerClass} />;
+        }
+        if (view === 'schedule') {
+            return <AiringSchedule settings={settings} containerClassName={containerClass} />;
+        }
+        if (view === 'music') {
+            return <MusicPage settings={settings} likedImages={likedImages} onToggleLike={toggleLikeImage} />;
+        }
+        if (view === 'liked-images') {
+            return <LikedImagesPage settings={settings} likedImages={likedImages} onRemoveImage={toggleLikeImage} />;
+        }
+        if (view === 'random') {
+            return <RandomAnimePage animeList={animeList} settings={settings} />;
+        }
+
+        if (loading) {
+            return (
+                 <div className="flex justify-center items-center h-screen flex-col gap-4">
+                    <div className="animate-spin rounded-full h-24 w-24 border-t-4 border-b-4 border-theme-lime"></div>
+                    <p className="text-theme-darkest dark:text-theme-lightest font-bold animate-pulse text-lg">{loadingStatus}</p>
+                    <p className="text-sm opacity-70">đang tải dữ liệu...</p>
+                </div>
+            );
+        }
+        if (error) {
+            return (
+                <div className="flex justify-center items-center h-screen text-center px-4">
+                    <div className="bg-red-900/50 border border-red-500 p-8 rounded-lg">
+                        <h2 className="text-xl sm:text-2xl font-bold text-red-400 mb-4">Đã xảy ra lỗi</h2>
+                        <p className="text-slate-300 text-sm sm:text-base">{error}</p>
+                    </div>
+                </div>
+            );
+        }
+        if (selectedAnime) {
+            return <AnimePlayer 
+                        anime={selectedAnime} 
+                        settings={settings}
+                        onClose={handleClosePlayer}
+                        containerClassName={playerContainerClass}
+                        allowDownload={isDownloadAllowed}
+                        downloadQueue={downloadQueue}
+                        addToQueue={addToQueue}
+                    />;
+        }
+
+        if (view === 'home') {
+             return (
+                <main className={`h-screen w-screen ${getHomePadding()}`}>
+                     {recommendedAnime.length > 0 && (
+                        <RecommendedAnime 
+                            animeList={recommendedAnime} 
+                            onSelectAnime={handleSelectAnime} 
+                            settings={settings}
+                        />
+                    )}
+                </main>
+            );
+        }
+
+        return <main />;
     }
+    
+    const appBg = ['glass-ui', 'liquid-glass'].includes(settings.theme) ? '' : 'bg-theme-lightest dark:bg-theme-darkest';
 
     return (
-        <div className="relative min-h-screen w-full overflow-hidden text-slate-900 dark:text-slate-100 transition-colors duration-500 bg-white/50 dark:bg-black/80">
-            <LiquidBackground />
+        <div className={`min-h-screen ${appBg} text-theme-darkest dark:text-theme-lightest relative`}>
+            {isLoadingApp && <SplashScreen finishLoading={() => setIsLoadingApp(false)} />}
             
-            <Header 
-                onDonateClick={() => setIsDonateModalOpen(true)}
-                onHomeClick={() => { setView('home'); setSelectedAnime(null); }}
-                onSearchClick={() => setIsSearchOpen(true)}
-                onGlossaryClick={() => { setView('glossary'); setSelectedAnime(null); }}
-                onRankingClick={() => { setView('ranking'); setSelectedAnime(null); }}
-                onScheduleClick={() => { setView('schedule'); setSelectedAnime(null); }}
-                onMusicClick={() => { setView('music'); setSelectedAnime(null); }}
-                onSettingsClick={() => setIsSettingsOpen(true)}
-                onLikedImagesClick={() => { setView('liked-images'); setSelectedAnime(null); }}
-                onCssEditorClick={() => setIsCssEditorOpen(true)}
-                onRandomClick={() => { setView('random'); setSelectedAnime(null); }}
-                onRelaxationClick={() => { setView('relaxation'); setSelectedAnime(null); }}
-                onTodoListClick={() => { setView('todo-list'); setSelectedAnime(null); }}
-                onStoreClick={() => setIsStoreOpen(true)}
-                onDataStoreClick={() => setIsDataStoreOpen(true)}
-                onOfflineClick={() => { setView('offline-videos'); setSelectedAnime(null); }}
-                installApp={handleInstallApp}
-                settings={settings}
-                view={view}
-            />
+            {/* Global Download Indicator (Mini Status) */}
+            {downloadQueue.length > 0 && (
+                <div className="fixed bottom-4 left-4 z-[90] bg-black/80 text-white p-3 rounded-lg shadow-xl backdrop-blur-md border border-white/10 text-xs font-mono max-w-[200px]">
+                    <div className="font-bold text-green-400 mb-1 flex items-center gap-2">
+                        <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                        Đang xử lý: {downloadQueue.length}
+                    </div>
+                    {downloadQueue.slice(0, 2).map(t => (
+                        <div key={t.id} className="mb-1 truncate">
+                             <span className={t.status === 'downloading' ? 'text-yellow-400' : 'text-slate-400'}>
+                                {t.status === 'downloading' ? '➤ ' : '• '} 
+                             </span>
+                             {t.episodeTitle}: {t.progress}
+                        </div>
+                    ))}
+                    {downloadQueue.length > 2 && <div className="text-slate-500 italic">...và {downloadQueue.length - 2} tập khác</div>}
+                </div>
+            )}
 
-            <div className={`pt-20 md:pt-24 px-4 pb-24 h-screen overflow-y-auto no-scrollbar ${settings.headerPosition === 'left' || settings.headerPosition === 'right' ? 'md:pl-24' : ''}`}>
-                {selectedAnime ? (
-                     <AnimePlayer 
-                        anime={selectedAnime} 
-                        settings={settings} 
-                        onClose={() => setSelectedAnime(null)} 
-                        allowDownload={true}
-                        downloadQueue={downloadQueue}
-                        addToQueue={(task) => setDownloadQueue(prev => [...prev, task])}
-                    />
-                ) : (
-                    <>
-                        {view === 'home' && (
-                            <div className="h-full flex flex-col items-center justify-center">
-                                {loading ? (
-                                    <div className="flex flex-col items-center gap-4">
-                                        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-theme-lime"></div>
-                                        <p className="text-theme-lime font-bold animate-pulse">{loadingStatus}</p>
-                                    </div>
-                                ) : error ? (
-                                    <div className="text-center p-8 bg-red-900/50 rounded-2xl border border-red-500">
-                                        <h2 className="text-2xl font-bold text-red-400 mb-2">Lỗi tải dữ liệu</h2>
-                                        <p>{error}</p>
-                                        <button onClick={() => window.location.reload()} className="mt-4 px-4 py-2 bg-red-500 rounded-lg text-white font-bold hover:bg-red-600">Thử lại</button>
-                                    </div>
-                                ) : (
-                                    <div className="w-full h-full max-w-7xl mx-auto">
-                                        <RecommendedAnime animeList={recommendedAnime} onSelectAnime={setSelectedAnime} settings={settings} />
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                        {view === 'glossary' && <Glossary settings={settings} />}
-                        {view === 'ranking' && <Ranking settings={settings} />}
-                        {view === 'schedule' && <AiringSchedule settings={settings} containerClassName="h-full" />}
-                        {view === 'music' && <MusicPage settings={settings} likedImages={likedImages} onToggleLike={toggleLikeImage} />}
-                        {view === 'liked-images' && <LikedImagesPage settings={settings} likedImages={likedImages} onRemoveImage={toggleLikeImage} />}
-                        {view === 'random' && <RandomAnimePage animeList={animeList} settings={settings} />}
-                        {view === 'relaxation' && <RelaxationPage settings={settings} onClose={() => setView('home')} />}
-                        {view === 'todo-list' && <TodoListPage settings={settings} onBack={() => setView('home')} />}
-                        {view === 'offline-videos' && <OfflinePage settings={settings} onBack={() => setView('home')} />}
-                    </>
-                )}
-            </div>
+            {/* Offline Toast Notification */}
+            {isOffline && (
+                <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] animate-bounce-in">
+                     <div 
+                        onClick={() => handleViewChange('offline-videos')} 
+                        className="bg-slate-900/90 backdrop-blur-md border border-red-500/50 text-white px-5 py-3 rounded-full shadow-2xl flex items-center gap-3 cursor-pointer hover:scale-105 transition-transform"
+                     >
+                         <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center">
+                            <WifiSlashIcon className="w-5 h-5 text-red-500" />
+                         </div>
+                         <div>
+                             <p className="font-bold text-sm">Oái, lạc mất mạng rồi!</p>
+                             <p className="text-[10px] text-slate-300 opacity-80">Nhấn để vào kho phim Offline ngay.</p>
+                         </div>
+                     </div>
+                </div>
+            )}
 
+            {/* Online Toast Notification */}
+            {showOnlineToast && (
+                <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] animate-slide-in-top">
+                     <div className="bg-emerald-500/90 backdrop-blur-md text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 border border-emerald-400/50">
+                         <WifiIcon className="w-5 h-5 text-white" />
+                         <span className="font-bold text-sm">Đã kết nối lại thế giới!</span>
+                     </div>
+                </div>
+            )}
+            
+            {(settings.theme === 'liquid-glass' && view !== 'music' && view !== 'random' && view !== 'relaxation' && view !== 'todo-list' && view !== 'offline-videos') && <LiquidBackground />}
+            {(view !== 'relaxation' && view !== 'todo-list') && (
+                <Header 
+                    onDonateClick={() => setIsDonateModalOpen(true)} 
+                    onHomeClick={() => handleViewChange('home')} 
+                    onSearchClick={() => setIsSearchOpen(true)}
+                    onGlossaryClick={() => handleViewChange('glossary')}
+                    onRankingClick={() => handleViewChange('ranking')}
+                    onScheduleClick={() => handleViewChange('schedule')}
+                    onMusicClick={() => handleViewChange('music')}
+                    onSettingsClick={() => setIsSettingsOpen(true)}
+                    onLikedImagesClick={() => handleViewChange('liked-images')}
+                    onCssEditorClick={() => setIsCssEditorOpen(true)}
+                    onRandomClick={() => handleViewChange('random')}
+                    onRelaxationClick={() => handleViewChange('relaxation')}
+                    onTodoListClick={() => handleViewChange('todo-list')}
+                    onStoreClick={() => setIsStoreOpen(true)}
+                    onDataStoreClick={() => setIsDataStoreOpen(true)}
+                    onOfflineClick={() => handleViewChange('offline-videos')}
+                    installApp={handleInstallApp}
+                    settings={settings}
+                    view={view}
+                />
+            )}
+            {renderContent()}
+            
             <DonateModal isOpen={isDonateModalOpen} onClose={() => setIsDonateModalOpen(false)} settings={settings} />
             <SearchModal 
                 isOpen={isSearchOpen} 
                 onClose={() => setIsSearchOpen(false)} 
                 animeList={animeList} 
-                onSelectAnime={(anime) => { setSelectedAnime(anime); setIsSearchOpen(false); }} 
+                onSelectAnime={handleSelectAnime}
                 settings={settings}
                 isBackgroundFetching={isBackgroundFetching}
                 backgroundStatus={loadingStatus}
             />
-            <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} settings={settings} onSettingsChange={setSettings} />
-            <CssEditorModal isOpen={isCssEditorOpen} onClose={() => setIsCssEditorOpen(false)} settings={settings} onSettingsChange={setSettings} />
-            <StoreModal isOpen={isStoreOpen} onClose={() => setIsStoreOpen(false)} settings={settings} onSettingsChange={setSettings} />
-            <DataStoreModal isOpen={isDataStoreOpen} onClose={() => setIsDataStoreOpen(false)} settings={settings} onSettingsChange={setSettings} />
-            
-             <style>{`
-                .no-scrollbar::-webkit-scrollbar { display: none; }
-                .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+            <SettingsModal
+                isOpen={isSettingsOpen}
+                onClose={() => setIsSettingsOpen(false)}
+                settings={settings}
+                onSettingsChange={setSettings}
+            />
+             <CssEditorModal
+                isOpen={isCssEditorOpen}
+                onClose={() => setIsCssEditorOpen(false)}
+                settings={settings}
+                onSettingsChange={setSettings}
+            />
+             <StoreModal 
+                isOpen={isStoreOpen} 
+                onClose={() => setIsStoreOpen(false)} 
+                settings={settings}
+                onSettingsChange={setSettings}
+            />
+            <DataStoreModal 
+                isOpen={isDataStoreOpen} 
+                onClose={() => setIsDataStoreOpen(false)} 
+                settings={settings}
+                onSettingsChange={setSettings}
+            />
+            <style>{`
+                @keyframes bounce-in {
+                    0% { transform: translate(-50%, -100%); opacity: 0; }
+                    60% { transform: translate(-50%, 10px); opacity: 1; }
+                    100% { transform: translate(-50%, 0); }
+                }
+                .animate-bounce-in {
+                    animation: bounce-in 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+                }
+                @keyframes slide-in-top {
+                    from { transform: translate(-50%, -100%); opacity: 0; }
+                    to { transform: translate(-50%, 0); opacity: 1; }
+                }
+                .animate-slide-in-top {
+                    animation: slide-in-top 0.4s ease-out forwards;
+                }
             `}</style>
         </div>
     );
-};
+}
 
 export default App;
