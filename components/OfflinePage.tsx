@@ -432,7 +432,7 @@ ${videoBlobUrl}
                                         <div className="flex items-center gap-4">
                                             {/* "M" Icon square like in the user image */}
                                             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-pink-400 to-rose-500 flex items-center justify-center text-white font-black text-xl shadow-lg shadow-pink-500/30 flex-shrink-0">
-                                                M
+                                                ✦
                                             </div>
                                             <div className="text-left">
                                                 <h3 className="font-bold text-lg leading-tight line-clamp-1">{animeName}</h3>
