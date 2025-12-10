@@ -19,6 +19,7 @@ import SplashScreen from './components/SplashScreen';
 import StoreModal from './components/StoreModal';
 import DataStoreModal from './components/DataStoreModal';
 import OfflinePage from './components/OfflinePage';
+import OnboardingModal from './components/OnboardingModal'; // NEW IMPORT
 import { Anime, Episode, Settings, View, DownloadTask } from './types';
 import { DATA_SOURCES } from './data/sources';
 import { WifiIcon, WifiSlashIcon } from './components/icons';
@@ -31,6 +32,7 @@ const OPHIM_DETAIL_API_BASE = 'https://ophim1.com/phim/';
 const OPHIM_PAGE_DEPTH = 1307; 
 const CACHE_DURATION = 24 * 60 * 60 * 1000;
 const CRAWLER_SNAPSHOT_KEY = 'ophim_crawler_snapshot';
+const ONBOARDING_KEY = 'hasCompletedOnboarding'; // NEW KEY
 
 const FALLBACK_DATA: Anime[] = [
   {
@@ -61,6 +63,7 @@ const App: React.FC = () => {
     const [isCssEditorOpen, setIsCssEditorOpen] = useState(false);
     const [isStoreOpen, setIsStoreOpen] = useState(false); 
     const [isDataStoreOpen, setIsDataStoreOpen] = useState(false);
+    const [isOnboardingOpen, setIsOnboardingOpen] = useState(false); // NEW STATE
     
     const [animeList, setAnimeList] = useState<Anime[]>([]);
     const [recommendedAnime, setRecommendedAnime] = useState<Anime[]>([]);
@@ -154,6 +157,7 @@ const App: React.FC = () => {
             const savedSettings = localStorage.getItem('animeAppSettings');
             const parsed = savedSettings ? JSON.parse(savedSettings) : {};
             return {
+                username: parsed.username || 'Wibu-er', // Default user
                 colorMode: parsed.colorMode || 'light',
                 theme: parsed.theme || 'green-screen',
                 isTextBolder: parsed.isTextBolder || false,
@@ -182,6 +186,7 @@ const App: React.FC = () => {
             };
         } catch (error) {
             return {
+                username: 'Wibu-er',
                 colorMode: 'dark',
                 theme: 'green-screen',
                 isTextBolder: false,
@@ -210,6 +215,25 @@ const App: React.FC = () => {
             };
         }
     });
+
+    // Check for Onboarding on Mount
+    useEffect(() => {
+        const hasCompleted = localStorage.getItem(ONBOARDING_KEY);
+        if (!hasCompleted) {
+            // Delay slightly to let splash screen finish
+            setTimeout(() => {
+                setIsOnboardingOpen(true);
+            }, 1000);
+        }
+    }, []);
+
+    // Handle Onboarding Completion
+    const handleOnboardingComplete = (name: string, avatar: string) => {
+        const newSettings = { ...settings, username: name, avatarUrl: avatar };
+        setSettings(newSettings);
+        localStorage.setItem(ONBOARDING_KEY, 'true');
+        setIsOnboardingOpen(false);
+    };
 
     useEffect(() => {
         const firstVisitKey = 'firstVisitTimestamp';
@@ -896,7 +920,7 @@ const App: React.FC = () => {
              playerContainerClass = getContentPadding('player');
         }
 
-        // Hân's Fix: Nếu đang xem phim dạng Inline (tắt popup), loại bỏ padding của Header để full màn hình
+       
         if (settings.disablePopupPlayer) {
             playerContainerClass = 'p-0 sm:p-2'; 
         }
@@ -974,6 +998,11 @@ const App: React.FC = () => {
     return (
         <div className={`min-h-screen ${appBg} text-theme-darkest dark:text-theme-lightest relative`}>
             {isLoadingApp && <SplashScreen finishLoading={() => setIsLoadingApp(false)} />}
+            <OnboardingModal 
+                isOpen={isOnboardingOpen} 
+                onComplete={handleOnboardingComplete} 
+                currentSettings={settings}
+            />
             
             {/* Global Download Indicator (Mini Status) */}
             {downloadQueue.length > 0 && (
