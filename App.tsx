@@ -167,7 +167,7 @@ const App: React.FC = () => {
                 blockNewTabs: parsed.blockNewTabs !== undefined ? parsed.blockNewTabs : true,
                 showNotes: parsed.showNotes || false,
                 headerPosition: parsed.headerPosition || 'top',
-                headerStyle: parsed.headerStyle || 'classic',
+                headerStyle: parsed.headerStyle || 'minimal-tabs', // Changed Default to minimal-tabs
                 resizablePanes: parsed.resizablePanes || false,
                 showCalendar: parsed.showCalendar || false,
                 showTodoList: parsed.showTodoList || false,
@@ -196,7 +196,7 @@ const App: React.FC = () => {
                 blockNewTabs: true,
                 showNotes: false,
                 headerPosition: 'top',
-                headerStyle: 'classic',
+                headerStyle: 'minimal-tabs', // Changed Default to minimal-tabs
                 resizablePanes: false,
                 showCalendar: false,
                 showTodoList: false,
@@ -423,7 +423,6 @@ const App: React.FC = () => {
             try {
                 setIsBackgroundFetching(true);
                 
-                // If initializing from snapshot, show resumed message
                 if (startPage > 1 && !isUpdateMode) {
                     setLoadingStatus(`Đang tiếp tục tải từ trang ${startPage}...`);
                 } else if (!isUpdateMode) {
@@ -478,11 +477,9 @@ const App: React.FC = () => {
                             }
                         }
                         
-                        // Add page data to collection
                         collectedAnime.push(...pageAnime);
 
-                        // --- SMART SAVE: Save Snapshot after every page ---
-                        // This allows resuming if the browser is closed or refreshed
+                        // --- SMART SAVE WITH TRY-CATCH ---
                         if (!isUpdateMode) {
                             try {
                                 const snapshot = {
@@ -490,15 +487,17 @@ const App: React.FC = () => {
                                     data: collectedAnime,
                                     timestamp: Date.now()
                                 };
+                                // Try to save snapshot. If it fails due to size, we catch it.
                                 localStorage.setItem(CRAWLER_SNAPSHOT_KEY, JSON.stringify(snapshot));
-                                
-                                // Update UI instantly so user sees progress
-                                setAnimeList([...collectedAnime]);
-                                if (currentPage === 1 || currentPage % 5 === 0) {
-                                    processData([...collectedAnime]);
-                                }
-                            } catch (e) {
-                                console.error("Failed to save crawler snapshot", e);
+                            } catch (e: any) {
+                                console.warn("Snapshot save failed (Quota Exceeded). Continue without saving snapshot.");
+                                // Optional: Clear old snapshot to prevent corrupt state loop
+                                // localStorage.removeItem(CRAWLER_SNAPSHOT_KEY); 
+                            }
+                            
+                            setAnimeList([...collectedAnime]);
+                            if (currentPage === 1 || currentPage % 5 === 0) {
+                                processData([...collectedAnime]);
                             }
                         }
                         
@@ -514,16 +513,23 @@ const App: React.FC = () => {
                 if (isUpdateMode && collectedAnime.length > 0) {
                     setAnimeList(collectedAnime);
                     processData(collectedAnime);
-                    localStorage.setItem('ophim_cache', JSON.stringify(collectedAnime));
+                    try {
+                        localStorage.setItem('ophim_cache', JSON.stringify(collectedAnime));
+                    } catch (e) {
+                        console.warn("Failed to cache full OPhim list (Quota Exceeded)");
+                    }
                 }
 
                 if (!isUpdateMode) {
                     const finalData = collectedAnime;
                     setAnimeList(finalData);
                     processData(finalData);
-                    localStorage.setItem('ophim_cache', JSON.stringify(finalData));
-                    // Clear snapshot as we finished successfully
-                    localStorage.removeItem(CRAWLER_SNAPSHOT_KEY);
+                    try {
+                        localStorage.setItem('ophim_cache', JSON.stringify(finalData));
+                        localStorage.removeItem(CRAWLER_SNAPSHOT_KEY);
+                    } catch (e) {
+                         console.warn("Failed to cache final data (Quota Exceeded)");
+                    }
                 }
                 
                 localStorage.setItem('ophim_timestamp', Date.now().toString());
@@ -537,7 +543,6 @@ const App: React.FC = () => {
         };
 
         const loadData = async () => {
-            // CRITICAL: Nếu đang Offline, KHÔNG cố tải dữ liệu từ API/CSV để tránh lỗi
             if (!navigator.onLine) {
                 setLoading(false);
                 return; 
@@ -547,7 +552,6 @@ const App: React.FC = () => {
             setError(null);
             setSelectedAnime(null);
             
-            // Chỉ reset về home nếu có mạng
             setView('home');
 
             const urlToTry = settings.customAnimeDataUrl || ANIME_CSV_URL;
@@ -563,16 +567,13 @@ const App: React.FC = () => {
                 if (crawlerSnapshot) {
                     try {
                         const snapshot = JSON.parse(crawlerSnapshot);
-                        // Resume if snapshot is less than 24h old and has data
                         if (Date.now() - snapshot.timestamp < 24 * 60 * 60 * 1000 && snapshot.nextPage <= OPHIM_PAGE_DEPTH) {
                             console.log(`Resuming crawler from page ${snapshot.nextPage}`);
                             hasSnapshot = true;
-                            // Show existing data immediately
                             setAnimeList(snapshot.data);
                             processData(snapshot.data);
-                            // Resume crawling
                             runOPhimCrawler(false, snapshot.nextPage, snapshot.data);
-                            return; // Exit here, let crawler handle the rest
+                            return; 
                         }
                     } catch (e) {
                         console.error("Invalid snapshot", e);
@@ -580,7 +581,6 @@ const App: React.FC = () => {
                     }
                 }
 
-                // Normal Cache Logic (if no resume needed)
                 let hasCache = false;
                 if (cachedData) {
                     try {
@@ -631,7 +631,6 @@ const App: React.FC = () => {
 
     // --- DOWNLOAD MANAGER LOGIC ---
     
-    // Helper: Save Blob to IDB (Moved from AnimePlayer)
     const saveToIndexedDB = async (blob: Blob, task: DownloadTask, fileType: string) => {
         const dbRequest = indexedDB.open('aniw-offline-db', 1);
         
@@ -666,7 +665,6 @@ const App: React.FC = () => {
         });
     }
 
-    // Resolve relative URL (Moved from AnimePlayer)
     const resolveUrl = (baseUrl: string, relativeUrl: string) => {
         if (relativeUrl.startsWith('http://') || relativeUrl.startsWith('https://')) return relativeUrl;
         const baseDir = baseUrl.substring(0, baseUrl.lastIndexOf('/') + 1);
@@ -762,7 +760,6 @@ const App: React.FC = () => {
                 }
             }
             updateTask({ status: 'completed', progress: 'Hoàn tất' });
-            // Clean up completed tasks after a delay
             setTimeout(() => {
                 setDownloadQueue(prev => prev.filter(t => t.id !== task.id));
             }, 5000);
@@ -776,18 +773,15 @@ const App: React.FC = () => {
         }
     };
 
-    // Queue Processor
     useEffect(() => {
         const processQueue = async () => {
             if (processingRef.current) return;
             
-            // Find next pending task
             const nextTask = downloadQueue.find(t => t.status === 'pending');
             if (!nextTask) return;
 
-            // Check if we are already downloading something
             const isDownloading = downloadQueue.some(t => t.status === 'downloading');
-            if (isDownloading) return; // Process one at a time for stability
+            if (isDownloading) return;
 
             processingRef.current = true;
             await processDownloadTask(nextTask);
@@ -800,11 +794,10 @@ const App: React.FC = () => {
 
 
     const addToQueue = (task: DownloadTask) => {
-        if (downloadQueue.some(t => t.id === task.id)) return; // Avoid duplicates
+        if (downloadQueue.some(t => t.id === task.id)) return;
         setDownloadQueue(prev => [...prev, task]);
     };
 
-    // Check if download is allowed for current source
     const isDownloadAllowed = useMemo(() => {
         const currentUrl = settings.customAnimeDataUrl || ANIME_CSV_URL;
         const matchedSource = DATA_SOURCES.find(s => s.url === currentUrl);
@@ -870,6 +863,8 @@ const App: React.FC = () => {
         }
 
         const getHomePadding = () => {
+            if (settings.headerStyle === 'minimal-tabs') return 'pt-20 px-4'; 
+
             if (settings.headerStyle === 'sidebar-curved') {
                 if (settings.headerPosition === 'left') return 'pl-20 p-4';
                 if (settings.headerPosition === 'right') return 'pr-20 p-4';
@@ -907,7 +902,7 @@ const App: React.FC = () => {
                 containerClass = 'pb-24 p-4 sm:p-8';
                 playerContainerClass = 'pb-24 px-4 pt-8';
              }
-        } else if (settings.headerStyle === 'focus-ui') {
+        } else if (settings.headerStyle === 'focus-ui' || settings.headerStyle === 'minimal-tabs') {
             if (settings.headerPosition === 'top') {
                 containerClass = 'pt-24 p-4 sm:p-8';
                 playerContainerClass = 'pt-24 px-4 pb-8';

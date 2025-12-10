@@ -1,358 +1,306 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Settings } from '../types';
 import { 
-    HomeIcon, SearchIcon, SettingsIcon, 
-    ChevronRightIcon, CheckIcon, PlayIcon, 
-    PauseIcon, TrashIcon, CalendarDaysIcon,
-    SparklesIcon, ClipboardIcon
+    HomeIcon, HeartIcon, 
+    PlayIcon, CalendarDaysIcon,
+    SparklesIcon, ClockIcon, 
+    DevicePhoneMobileIcon,
+    BookmarkSolidIcon,
+    TrashIcon,
+    CheckIcon,
+    MoonIcon,
+    SunIcon,
+    ShareIcon,
+    VideoCameraIcon
 } from './icons';
+
+// --- Additional Icons defined locally to avoid modifying icons.tsx if not strictly necessary, 
+// or mapping existing ones creatively ---
+const ClockIconLocal = ({ className }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={className}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+);
+const EyeIcon = ({ className }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={className}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+);
 
 interface TodoListPageProps {
     settings: Settings;
     onBack?: () => void;
 }
 
-// --- UI Components ---
+// --- NEO COMPONENTS ---
 
 const NeoCard: React.FC<{ 
     children: React.ReactNode; 
     className?: string; 
     color?: string;
-    noShadow?: boolean;
-}> = ({ children, className = "", color = "bg-white", noShadow = false }) => (
-    <div className={`${color} border-2 border-black rounded-2xl ${noShadow ? '' : 'shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]'} ${className} overflow-hidden transition-all`}>
+    onClick?: () => void;
+}> = ({ children, className = "", color = "bg-white", onClick }) => (
+    <div 
+        onClick={onClick}
+        className={`${color} border-2 border-black rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all ${className} overflow-hidden cursor-pointer relative group`}
+    >
         {children}
     </div>
 );
 
-const NeoButton: React.FC<{
-    children: React.ReactNode;
-    className?: string;
-    onClick?: () => void;
-    color?: string;
-}> = ({ children, className = "", onClick, color = "bg-yellow-300" }) => (
-    <button 
-        onClick={onClick}
-        className={`${color} border-2 border-black rounded-xl font-bold transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] ${className}`}
-    >
-        {children}
-    </button>
-);
-
-// --- Icons for Design ---
-const LightningIcon = ({ className }: { className?: string }) => (
-    <svg viewBox="0 0 24 24" fill="currentColor" className={className}><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg>
-);
-const PlusIcon = ({ className }: { className?: string }) => (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-);
-
-// --- Functional Widgets ---
-
-const HeaderWidget = ({ onBack }: { onBack?: () => void }) => (
-    <NeoCard color="bg-yellow-300" className="p-3 flex items-center justify-between">
-        <div className="flex gap-2">
-            <NeoButton onClick={onBack} color="bg-blue-400" className="px-4 py-2 text-white flex items-center gap-2 shadow-none border-b-4 border-r-4 hover:translate-y-[2px] hover:translate-x-[2px] hover:shadow-none transition-all">
-                <div className="bg-white/20 p-1 rounded"><HomeIcon className="w-4 h-4" /></div>
-                <span className="hidden sm:inline">Trang chủ</span>
-            </NeoButton>
-        </div>
-        <div className="font-black text-xl tracking-tighter uppercase hidden xs:block">Tiện Ích Anime</div>
-        <div className="flex gap-2">
-            <div className="w-10 h-10 flex items-center justify-center rounded-xl border-2 border-black bg-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                <SparklesIcon className="w-5 h-5 text-slate-800" />
-            </div>
-             <div className="w-10 h-10 flex items-center justify-center rounded-xl border-2 border-black bg-orange-300 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                <SettingsIcon className="w-6 h-6 text-slate-800" />
-            </div>
-        </div>
-    </NeoCard>
-);
-
-const ProfileWidget = ({ settings }: { settings: Settings }) => (
-    <NeoCard className="p-4 flex items-center gap-4 bg-white">
-        <div className="w-14 h-14 rounded-full border-2 border-black overflow-hidden shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-            <img src={settings.avatarUrl} alt="Profile" className="w-full h-full object-cover" />
+const SectionTitle: React.FC<{ title: string; subtitle: string; icon: React.ReactNode; color: string }> = ({ title, subtitle, icon, color }) => (
+    <div className="flex items-center gap-3 mb-4">
+        <div className={`w-10 h-10 ${color} border-2 border-black rounded-xl flex items-center justify-center shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]`}>
+            {icon}
         </div>
         <div>
-            <h4 className="font-bold text-base">Xin chào, {settings.username || 'Wibu'}!</h4>
-            <p className="text-xs text-slate-500 font-bold">Đã đến lúc cày anime rồi!</p>
+            <h2 className="font-black text-xl uppercase italic tracking-tighter text-slate-800 dark:text-slate-200">{title}</h2>
+            <p className="text-xs font-bold text-slate-500 dark:text-slate-400">{subtitle}</p>
         </div>
-    </NeoCard>
+    </div>
 );
 
-const StatsWidget = () => (
-    <NeoCard className="p-2 flex justify-between items-center bg-pink-100" noShadow>
-        <div className="flex items-center gap-2 bg-white border-2 border-black rounded-lg px-3 py-1.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-            <LightningIcon className="w-4 h-4 text-yellow-500" />
-            <span className="font-bold text-sm">Level 99</span>
-        </div>
-        <div className="flex items-center gap-2 font-bold text-sm text-slate-800 pr-2">
-            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-            <span>Online</span>
-        </div>
-    </NeoCard>
-);
-
-interface Todo { id: number; text: string; completed: boolean; }
-
-const TodoWidget = () => {
-    const [todos, setTodos] = useState<Todo[]>(() => {
-        try {
-            const saved = localStorage.getItem('todos');
-            return saved ? JSON.parse(saved) : [
-                { id: 1, text: 'Xem tập mới One Piece', completed: false },
-                { id: 2, text: 'Đọc manga chap 100', completed: true }
-            ];
-        } catch { return []; }
-    });
-    const [input, setInput] = useState('');
-
-    useEffect(() => {
-        localStorage.setItem('todos', JSON.stringify(todos));
-    }, [todos]);
-
-    const addTodo = () => {
-        if (!input.trim()) return;
-        setTodos([...todos, { id: Date.now(), text: input, completed: false }]);
-        setInput('');
-    };
-
-    const toggleTodo = (id: number) => {
-        setTodos(todos.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
-    };
-
-    const deleteTodo = (id: number) => {
-        setTodos(todos.filter(t => t.id !== id));
-    };
-
-    return (
-        <NeoCard className="p-5 flex flex-col gap-4 h-full min-h-[320px] bg-white relative">
-            <div className="flex justify-between items-center border-b-2 border-slate-100 pb-3">
-                <div className="space-y-1">
-                    <h3 className="font-black text-2xl leading-tight">Nhiệm Vụ</h3>
-                    <p className="text-xs text-slate-500 font-bold">Danh sách việc cần làm</p>
-                </div>
-                <div className="w-10 h-10 bg-purple-300 border-2 border-black rounded-full flex items-center justify-center shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                    <ClipboardIcon className="w-5 h-5 text-black" />
-                </div>
-            </div>
-            
-            <div className="flex gap-2">
-                <input 
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && addTodo()}
-                    placeholder="Thêm nhiệm vụ..."
-                    className="flex-1 bg-slate-50 border-2 border-black rounded-xl px-3 py-2 font-bold text-sm focus:outline-none focus:bg-white transition-colors"
-                />
-                <NeoButton onClick={addTodo} color="bg-green-400" className="w-10 flex items-center justify-center">
-                    <PlusIcon className="w-5 h-5" />
-                </NeoButton>
-            </div>
-
-            <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
-                {todos.length === 0 && (
-                    <p className="text-center text-slate-400 text-sm italic mt-10">Không có nhiệm vụ nào.</p>
-                )}
-                {todos.map(todo => (
-                    <div key={todo.id} className="flex items-center gap-3 group bg-slate-50 p-2 rounded-lg border-2 border-transparent hover:border-slate-200 transition-all">
-                        <button 
-                            onClick={() => toggleTodo(todo.id)}
-                            className={`w-6 h-6 border-2 border-black rounded flex items-center justify-center transition-all flex-shrink-0 ${todo.completed ? 'bg-black' : 'bg-white hover:bg-green-200'}`}
-                        >
-                            {todo.completed && <CheckIcon className="w-4 h-4 text-white" />}
-                        </button>
-                        <span className={`flex-1 text-sm font-bold leading-tight ${todo.completed ? 'line-through text-slate-400' : 'text-slate-800'}`}>
-                            {todo.text}
-                        </span>
-                        <button onClick={() => deleteTodo(todo.id)} className="w-8 h-8 flex items-center justify-center bg-red-100 hover:bg-red-400 hover:text-white rounded-lg text-red-500 transition-colors">
-                            <TrashIcon className="w-4 h-4" />
-                        </button>
-                    </div>
-                ))}
-            </div>
-            
-             {/* Progress bar decoration */}
-             <div className="absolute bottom-0 left-0 w-full h-4 bg-slate-100 border-t-2 border-black">
-                 <div 
-                    className="h-full bg-green-400 border-r-2 border-black transition-all duration-500"
-                    style={{ width: `${todos.length > 0 ? (todos.filter(t => t.completed).length / todos.length) * 100 : 0}%` }}
-                 ></div>
-             </div>
-        </NeoCard>
-    );
-};
-
-const StopwatchWidget = () => {
-    const [time, setTime] = useState(0);
-    const [isRunning, setIsRunning] = useState(false);
-    const timerRef = useRef<number | null>(null);
-
-    useEffect(() => {
-        if (isRunning) {
-            timerRef.current = window.setInterval(() => setTime(t => t + 10), 10);
-        } else if (timerRef.current) {
-            clearInterval(timerRef.current);
-        }
-        return () => { if (timerRef.current) clearInterval(timerRef.current); };
-    }, [isRunning]);
-
-    const format = (ms: number) => {
-        const m = Math.floor(ms / 60000).toString().padStart(2, '0');
-        const s = Math.floor((ms % 60000) / 1000).toString().padStart(2, '0');
-        const c = Math.floor((ms % 1000) / 10).toString().padStart(2, '0');
-        return { m, s, c };
-    };
-
-    const { m, s, c } = format(time);
-
-    return (
-        <NeoCard className="p-4 flex flex-col gap-4 bg-orange-300">
-             <div className="flex justify-between items-start">
-                <div>
-                    <h3 className="font-bold text-sm text-slate-800 leading-tight">Bấm Giờ</h3>
-                    <p className="text-xs text-slate-600 mt-1">Pomodoro Timer</p>
-                </div>
-                <div className="w-8 h-8 bg-white border-2 border-black rounded-lg flex items-center justify-center shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                    <div className={`w-3 h-3 bg-red-500 rounded-full ${isRunning ? 'animate-ping' : ''}`}></div>
-                </div>
-            </div>
-            
-            <div className="bg-white border-2 border-black rounded-xl p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex justify-center items-end gap-1">
-                <span className="text-4xl font-black tracking-tighter">{m}:{s}</span>
-                <span className="text-xl font-bold text-slate-400 mb-1">.{c}</span>
-            </div>
-
-            <div className="flex gap-2">
-                <NeoButton onClick={() => setIsRunning(!isRunning)} color={isRunning ? "bg-red-400" : "bg-green-400"} className="flex-1 py-2 text-white">
-                    {isRunning ? <PauseIcon className="w-5 h-5 mx-auto" /> : <PlayIcon className="w-5 h-5 mx-auto" />}
-                </NeoButton>
-                <NeoButton onClick={() => { setIsRunning(false); setTime(0); }} color="bg-slate-100" className="px-4 text-slate-800">
-                    Reset
-                </NeoButton>
-            </div>
-        </NeoCard>
-    );
-};
-
-const CalendarWidget = () => {
-    const today = new Date();
-    const date = today.getDate();
-    const day = today.toLocaleDateString('en-US', { weekday: 'short' });
-    const month = today.toLocaleDateString('en-US', { month: 'long' });
-
-    return (
-        <NeoCard className="p-4 flex flex-col justify-between h-full bg-blue-200">
-            <div className="flex justify-between items-start">
-                <span className="bg-black text-white px-2 py-1 rounded text-xs font-bold">{today.getFullYear()}</span>
-                <CalendarDaysIcon className="w-6 h-6 text-slate-800" />
-            </div>
-            <div className="text-center my-2">
-                 <div className="text-6xl font-black text-slate-900 leading-none drop-shadow-sm">{date}</div>
-                 <div className="text-xl font-bold text-slate-700 uppercase tracking-widest">{day}</div>
-            </div>
-            <div className="bg-white border-2 border-black rounded-lg py-1 text-center font-bold text-sm shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                {month}
-            </div>
-        </NeoCard>
-    );
-};
-
-const NotesWidget = () => {
-    const [note, setNote] = useState(() => localStorage.getItem('quickNote') || '');
-    
-    return (
-        <NeoCard className="p-4 flex flex-col gap-2 h-full bg-yellow-100">
-            <div className="flex items-center gap-2 mb-1">
-                <div className="w-3 h-3 rounded-full bg-red-400 border border-black"></div>
-                <div className="w-3 h-3 rounded-full bg-yellow-400 border border-black"></div>
-                <div className="w-3 h-3 rounded-full bg-green-400 border border-black"></div>
-                <span className="ml-auto text-xs font-bold text-slate-500">Ghi chú nhanh</span>
-            </div>
-            <textarea 
-                value={note}
-                onChange={(e) => { setNote(e.target.value); localStorage.setItem('quickNote', e.target.value); }}
-                className="flex-1 w-full bg-white border-2 border-black rounded-xl p-3 text-sm font-medium resize-none focus:outline-none focus:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-shadow leading-relaxed"
-                placeholder="Viết gì đó vào đây..."
-            />
-        </NeoCard>
-    );
-};
-
+// --- MAIN PAGE ---
 
 const TodoListPage: React.FC<TodoListPageProps> = ({ settings, onBack }) => {
+    const [activeTool, setActiveTool] = useState<string | null>(null);
+    const [history, setHistory] = useState<any[]>([]);
+    const [favorites, setFavorites] = useState<any[]>([]);
+    const [savedEpisodes, setSavedEpisodes] = useState<any[]>([]);
+
+    // Load Data from LocalStorage
+    useEffect(() => {
+        try {
+            const h = JSON.parse(localStorage.getItem('aniw_watch_history') || '[]');
+            setHistory(h);
+            
+            const f = JSON.parse(localStorage.getItem('aniw_favorites') || '[]');
+            setFavorites(f);
+
+            const s = JSON.parse(localStorage.getItem('aniw_liked_episodes') || '[]');
+            setSavedEpisodes(s);
+        } catch (e) {
+            console.error("Failed to load dashboard data", e);
+        }
+    }, []);
+
+    const handleToolClick = (toolName: string) => {
+        setActiveTool(toolName);
+        setTimeout(() => setActiveTool(null), 2000); // Reset feedback
+        
+        if (toolName === 'PiP') {
+            // Logic PiP thực tế sẽ cần video element, ở đây ta mô phỏng UI
+            // Trong thực tế, nút này sẽ gửi event đến Global Video Player
+            const video = document.querySelector('video');
+            if (video && document.pictureInPictureEnabled) {
+                if (document.pictureInPictureElement) {
+                    document.exitPictureInPicture();
+                } else {
+                    video.requestPictureInPicture();
+                }
+            } else {
+                alert("Hãy mở video trước khi dùng PiP nhé!");
+            }
+        }
+        if (toolName === 'Focus') {
+            // Toggle focus mode logic (mock)
+            const root = document.getElementById('root');
+            if(root) root.classList.toggle('focus-mode-active');
+        }
+    };
+
+    const isGlass = ['glass-ui', 'liquid-glass'].includes(settings.theme);
+    const bgClass = isGlass ? 'bg-transparent' : 'bg-[#F0F2F5] dark:bg-[#121212]';
+    const textMain = isGlass ? 'text-theme-darkest dark:text-theme-lightest' : 'text-slate-900 dark:text-slate-100';
+
     return (
-        <div className="min-h-screen bg-[#F8F9FA] p-4 md:p-8 font-sans text-slate-900 pt-20 pb-20">
-            <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {/* Column 1: Profile & Tools */}
-                <div className="flex flex-col gap-6">
-                    <ProfileWidget settings={settings} />
-                    <div className="grid grid-cols-2 gap-6">
-                         <CalendarWidget />
-                         <StatsWidget />
-                    </div>
-                    <NotesWidget />
-                </div>
-
-                {/* Column 2: Main Todo List */}
-                <div className="flex flex-col gap-6 lg:row-span-2 h-full">
-                    <HeaderWidget onBack={onBack} />
-                    <div className="flex-1">
-                        <TodoWidget />
-                    </div>
-                </div>
-
-                {/* Column 3: Gadgets */}
-                <div className="flex flex-col gap-6">
-                    <StopwatchWidget />
+        <div className={`min-h-screen ${bgClass} p-4 md:p-8 pt-24 pb-20 font-sans selection:bg-theme-lime`}>
+            <div className="max-w-6xl mx-auto">
+                
+                {/* Header Navigation */}
+                <div className="flex justify-between items-center mb-8">
+                    <button 
+                        onClick={onBack}
+                        className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 px-4 py-2 rounded-xl border-2 border-black dark:border-slate-600 font-bold shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] dark:shadow-[3px_3px_0px_0px_rgba(255,255,255,0.2)] hover:shadow-none hover:translate-x-[3px] hover:translate-y-[3px] transition-all flex items-center gap-2"
+                    >
+                        <HomeIcon className="w-5 h-5" />
+                        Quay lại
+                    </button>
                     
-                    {/* Decorative Card simulating 'ArticleWidget' from the image */}
-                    <NeoCard className="p-5 flex flex-col gap-3 bg-white">
-                        <div className="flex justify-center mb-2">
-                             <div className="bg-blue-400 text-white font-bold w-8 h-8 flex items-center justify-center rounded-full border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">!</div>
+                    <div className="flex items-center gap-3 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border-2 border-black dark:border-slate-600 rounded-full px-4 py-1.5 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] dark:shadow-[3px_3px_0px_0px_rgba(255,255,255,0.2)]">
+                        <div className="w-8 h-8 rounded-full border border-black dark:border-slate-500 overflow-hidden">
+                            <img src={settings.avatarUrl} alt="User" className="w-full h-full object-cover" />
                         </div>
-                        <h3 className="font-bold text-center text-sm">Mẹo vặt cuộc sống</h3>
-                        <div className="relative w-full h-24 bg-slate-200 rounded-xl border-2 border-black overflow-hidden mt-1 group">
-                             <div className="absolute inset-0 bg-gradient-to-br from-purple-400 to-blue-400 flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
-                                <SparklesIcon className="w-10 h-10 text-white animate-spin-slow" />
-                             </div>
+                        <span className="font-bold text-sm">Hi, {settings.username || 'Senpai'}!</span>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                    
+                    {/* LEFT COLUMN: FEATURES (CHỨC NĂNG) */}
+                    <div className="lg:col-span-7 flex flex-col gap-6">
+                        <SectionTitle 
+                            title="Kho Tàng Của Bạn" 
+                            subtitle="Dữ liệu cá nhân & Lưu trữ" 
+                            color="bg-purple-300"
+                            icon={<BookmarkSolidIcon className="w-5 h-5 text-black" />}
+                        />
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {/* Feature 1: History */}
+                            <NeoCard className="sm:col-span-2 bg-white dark:bg-slate-800 p-5 group" onClick={() => {}}>
+                                <div className="flex justify-between items-start">
+                                    <div className="dark:text-white">
+                                        <div className="bg-orange-100 dark:bg-orange-900/30 w-fit px-2 py-1 rounded-md border border-orange-200 dark:border-orange-800 text-[10px] font-bold text-orange-600 dark:text-orange-400 mb-2 uppercase tracking-wide">
+                                            Tiếp tục xem
+                                        </div>
+                                        <h3 className="font-black text-2xl group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">Lịch sử xem</h3>
+                                        <p className="text-sm text-slate-500 dark:text-slate-400 font-medium mt-1">
+                                            Bạn đã xem <span className="text-black dark:text-white font-bold">{history.length}</span> bộ anime.
+                                        </p>
+                                    </div>
+                                    <div className="w-12 h-12 bg-orange-300 border-2 border-black rounded-full flex items-center justify-center group-hover:rotate-12 transition-transform">
+                                        <ClockIconLocal className="w-6 h-6 text-black" />
+                                    </div>
+                                </div>
+                                {/* Recent History List */}
+                                <div className="mt-4 flex flex-col gap-2">
+                                    {history.slice(0, 3).map((item, idx) => (
+                                        <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-slate-100 dark:bg-slate-700/50">
+                                            <span className="text-xs font-bold truncate max-w-[70%] dark:text-slate-200">{item.animeName}</span>
+                                            <span className="text-[10px] bg-white dark:bg-black/20 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-600 dark:text-slate-400">{item.episode}</span>
+                                        </div>
+                                    ))}
+                                    {history.length === 0 && <p className="text-xs italic text-slate-400">Chưa có dữ liệu...</p>}
+                                </div>
+                            </NeoCard>
+
+                            {/* Feature 2: Favorites */}
+                            <NeoCard className="bg-pink-200 dark:bg-pink-900/50 p-5 h-48 flex flex-col justify-between" onClick={() => {}}>
+                                <div className="flex justify-between items-start">
+                                     <HeartIcon className="w-8 h-8 text-red-500 fill-current animate-pulse-slow" />
+                                     <span className="font-black text-4xl opacity-20 dark:text-white">{favorites.length}</span>
+                                </div>
+                                <div className="dark:text-white">
+                                    <h3 className="font-bold text-lg leading-tight">Anime<br/>Yêu Thích</h3>
+                                    <div className="w-full bg-black/10 dark:bg-white/10 h-1.5 rounded-full mt-2 overflow-hidden">
+                                        <div className="bg-red-500 h-full" style={{width: `${Math.min(favorites.length * 10, 100)}%`}}></div>
+                                    </div>
+                                    <p className="text-[10px] mt-1 opacity-70">Nhấn tim để thêm vào đây</p>
+                                </div>
+                            </NeoCard>
+
+                            {/* Feature 3: Saved Episodes */}
+                            <NeoCard className="bg-blue-200 dark:bg-blue-900/50 p-5 h-48 flex flex-col justify-between" onClick={() => {}}>
+                                 <div className="flex justify-between items-start">
+                                     <BookmarkSolidIcon className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                                     <span className="font-black text-4xl opacity-20 dark:text-white">{savedEpisodes.length}</span>
+                                </div>
+                                <div className="dark:text-white">
+                                    <h3 className="font-bold text-lg leading-tight">Tập Phim<br/>Yêu Thích</h3>
+                                    <p className="text-xs font-bold opacity-60 mt-1">Danh sách đánh dấu</p>
+                                </div>
+                            </NeoCard>
                         </div>
-                        <p className="text-xs text-slate-500 leading-relaxed text-justify font-medium">
-                            Hãy nhớ uống đủ nước và nghỉ ngơi sau mỗi giờ xem Anime để bảo vệ sức khỏe nhé!
-                        </p>
-                        <div className="flex items-center justify-between mt-2 pt-3 border-t-2 border-slate-100">
-                             <div className="flex gap-2">
-                                 <div className="w-6 h-6 flex items-center justify-center bg-black text-white rounded-md cursor-pointer hover:bg-slate-800"><span className="text-xs">❤️</span></div>
+                        
+                        {/* Quote or Decorative Banner */}
+                        <NeoCard className="bg-gradient-to-r from-theme-lime to-theme-mint p-4" onClick={() => {}}>
+                            <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 bg-white border-2 border-black rounded-full flex items-center justify-center text-xl">💡</div>
+                                <p className="text-sm font-bold italic text-slate-900">"Wibu không bao giờ cô đơn, vì chúng ta có Waifu!"</p>
                             </div>
-                             <p className="text-[10px] font-bold text-right">AniW Team</p>
+                        </NeoCard>
+                    </div>
+
+                    {/* RIGHT COLUMN: TOOLS (CÔNG CỤ) */}
+                    <div className="lg:col-span-5 flex flex-col gap-6">
+                         <SectionTitle 
+                            title="Trạm Điều Khiển" 
+                            subtitle="Công cụ tiện ích" 
+                            color="bg-yellow-300"
+                            icon={<SparklesIcon className="w-5 h-5 text-black" />}
+                        />
+
+                        <div className="grid grid-cols-2 gap-4">
+                            {/* Tool 1: PiP Mode */}
+                            <NeoCard 
+                                className="col-span-2 bg-white dark:bg-slate-800 p-4 flex items-center gap-4 group hover:bg-slate-50 dark:hover:bg-slate-700"
+                                onClick={() => handleToolClick('PiP')}
+                            >
+                                <div className={`w-12 h-12 ${activeTool === 'PiP' ? 'bg-green-400' : 'bg-slate-200 dark:bg-slate-600'} border-2 border-black dark:border-slate-500 rounded-xl flex items-center justify-center transition-colors`}>
+                                    <DevicePhoneMobileIcon className="w-6 h-6 text-black dark:text-white" />
+                                </div>
+                                <div className="flex-1 dark:text-white">
+                                    <h3 className="font-bold text-base">Chế độ PiP</h3>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 font-bold">Thu nhỏ video xuống góc</p>
+                                </div>
+                                {activeTool === 'PiP' && <CheckIcon className="w-6 h-6 text-green-500 animate-bounce" />}
+                            </NeoCard>
+
+                            {/* Tool 2: Focus Mode */}
+                            <NeoCard 
+                                className="bg-white dark:bg-slate-800 p-4 flex flex-col gap-3 group"
+                                onClick={() => handleToolClick('Focus')}
+                            >
+                                <div className="flex justify-between items-start">
+                                    <div className={`w-10 h-10 ${activeTool === 'Focus' ? 'bg-indigo-400 text-white' : 'bg-indigo-100 dark:bg-indigo-900'} border-2 border-black dark:border-slate-500 rounded-full flex items-center justify-center transition-colors`}>
+                                        <EyeIcon className="w-5 h-5 dark:text-white" />
+                                    </div>
+                                    <div className="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-600 group-hover:bg-green-400 transition-colors"></div>
+                                </div>
+                                <span className="font-bold text-sm dark:text-white">Chế độ Tập trung</span>
+                            </NeoCard>
+
+                            {/* Tool 3: Screenshot (Mock) */}
+                            <NeoCard 
+                                className="bg-white dark:bg-slate-800 p-4 flex flex-col gap-3 group"
+                                onClick={() => handleToolClick('Shot')}
+                            >
+                                <div className="flex justify-between items-start">
+                                    <div className={`w-10 h-10 ${activeTool === 'Shot' ? 'bg-pink-400 text-white' : 'bg-pink-100 dark:bg-pink-900'} border-2 border-black dark:border-slate-500 rounded-full flex items-center justify-center transition-colors`}>
+                                         <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 dark:text-white"><path d="M12 9a3.75 3.75 0 100 7.5A3.75 3.75 0 0012 9z" /><path fillRule="evenodd" d="M9.344 3.071a4.993 4.993 0 015.312 0l.208.119a2.25 2.25 0 001.129.308h2.257c1.35 0 2.474.965 2.68 2.281l.656 4.2a8.558 8.558 0 010 2.682l-.656 4.2c-.206 1.316-1.33 2.281-2.68 2.281H5.75c-1.35 0-2.474-.965-2.68-2.281l-.656-4.2a8.558 8.558 0 010-2.682l.656-4.2c.206-1.316 1.33-2.281 2.68-2.281h2.257a2.25 2.25 0 001.129-.308l.208-.119zM6 12.75a6 6 0 1112 0 6 6 0 01-12 0z" clipRule="evenodd" /></svg>
+                                    </div>
+                                </div>
+                                <span className="font-bold text-sm dark:text-white">Chụp màn hình</span>
+                            </NeoCard>
+
+                            {/* Tool 4: Share */}
+                            <NeoCard 
+                                className="col-span-2 bg-yellow-100 dark:bg-yellow-900/40 p-4 flex items-center justify-between group"
+                                onClick={() => handleToolClick('Share')}
+                            >
+                                <div className="flex items-center gap-3">
+                                     <div className={`w-10 h-10 ${activeTool === 'Share' ? 'bg-yellow-400' : 'bg-white dark:bg-slate-700'} border-2 border-black dark:border-slate-500 rounded-lg flex items-center justify-center transition-colors`}>
+                                        <ShareIcon className="w-5 h-5 dark:text-white" />
+                                    </div>
+                                    <div className="dark:text-white">
+                                        <h3 className="font-bold text-sm">Chia sẻ App</h3>
+                                        <p className="text-[10px] font-bold opacity-60">Mời bạn bè cùng xem</p>
+                                    </div>
+                                </div>
+                                <div className="bg-black dark:bg-white dark:text-black text-white px-3 py-1 rounded text-xs font-bold group-hover:scale-110 transition-transform">
+                                    Copy Link
+                                </div>
+                            </NeoCard>
                         </div>
-                    </NeoCard>
+                        
+                        {/* Footer Info */}
+                        <div className="mt-auto text-center">
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">AniW Utilities v2.5</p>
+                            <p className="text-[10px] text-slate-400 mt-1">Made with ❤️ for {settings.username}</p>
+                        </div>
+                    </div>
                 </div>
             </div>
-            
-            <style>{`
-                .custom-scrollbar::-webkit-scrollbar {
-                    width: 6px;
+             <style>{`
+                @keyframes pulse-slow {
+                    0%, 100% { opacity: 1; transform: scale(1); }
+                    50% { opacity: 0.8; transform: scale(1.1); }
                 }
-                .custom-scrollbar::-webkit-scrollbar-track {
-                    background: #f1f1f1;
-                    border-radius: 10px;
-                }
-                .custom-scrollbar::-webkit-scrollbar-thumb {
-                    background: #000; 
-                    border-radius: 10px;
-                }
-                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-                    background: #333; 
-                }
-                @keyframes spin-slow {
-                    from { transform: rotate(0deg); }
-                    to { transform: rotate(360deg); }
-                }
-                .animate-spin-slow {
-                    animation: spin-slow 3s linear infinite;
+                .animate-pulse-slow {
+                    animation: pulse-slow 3s ease-in-out infinite;
                 }
             `}</style>
         </div>

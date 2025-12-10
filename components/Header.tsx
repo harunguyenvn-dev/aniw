@@ -68,6 +68,122 @@ const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchCli
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    // Helper to open settings from dropdown (rename prop usage)
+    const onSettingsChangeClick = onSettingsClick;
+
+    // --- STYLE: MINIMAL TABS ---
+    if (settings.headerStyle === 'minimal-tabs') {
+        const menuItems = [
+            { id: 'home', icon: HomeIcon, onClick: onHomeClick, label: 'Trang chủ' },
+            { id: 'search', icon: SearchIcon, onClick: onSearchClick, label: 'Tìm kiếm' },
+            { id: 'ranking', icon: TrophyIcon, onClick: onRankingClick, label: 'BXH' },
+            { id: 'schedule', icon: CalendarDaysIcon, onClick: onScheduleClick, label: 'Lịch' },
+            { id: 'music', icon: WaifuIcon, onClick: onMusicClick, label: 'Waifu' },
+        ];
+
+        const isGlass = ['glass-ui', 'liquid-glass'].includes(settings.theme);
+        const headerBg = isGlass 
+            ? 'glass-card border-b border-white/20' 
+            : 'bg-white/90 dark:bg-[#121212]/90 backdrop-blur-xl border-b border-slate-200 dark:border-white/5 shadow-sm';
+        const textMain = isGlass ? 'text-theme-darkest dark:text-theme-lightest' : 'text-slate-800 dark:text-slate-200';
+        
+        return (
+            <header className={`fixed top-0 left-0 w-full z-50 transition-all duration-300 ${headerBg}`}>
+                <div className="max-w-[1920px] mx-auto px-4 h-16 flex items-center justify-between">
+                    {/* Left: Logo */}
+                    <div className="flex items-center gap-2 cursor-pointer" onClick={onHomeClick}>
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-theme-lime to-theme-mint flex items-center justify-center shadow-lg shadow-theme-lime/20">
+                             <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6 text-theme-darkest" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        </div>
+                        <span className={`text-xl font-black tracking-tighter hidden sm:block ${textMain}`}>AniW</span>
+                    </div>
+
+                    {/* Center: Tabs */}
+                    <nav className="flex items-center gap-1 md:gap-2 overflow-x-auto no-scrollbar px-2">
+                        {menuItems.map((item) => {
+                            const isActive = view === item.id;
+                            return (
+                                <button
+                                    key={item.id}
+                                    onClick={item.onClick}
+                                    className={`relative flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-300 font-bold text-sm whitespace-nowrap
+                                        ${isActive 
+                                            ? 'bg-theme-lime text-theme-darkest shadow-md shadow-theme-lime/20' 
+                                            : `hover:bg-black/5 dark:hover:bg-white/10 ${textMain} opacity-70 hover:opacity-100`
+                                        }
+                                    `}
+                                >
+                                    <item.icon className="w-5 h-5" />
+                                    <span className="hidden md:inline">{item.label}</span>
+                                </button>
+                            );
+                        })}
+                    </nav>
+
+                    {/* Right: User & Utils */}
+                    <div className="flex items-center gap-2 md:gap-4">
+                        <button onClick={onStoreClick} className={`p-2 rounded-full transition-all hover:bg-black/5 dark:hover:bg-white/10 ${textMain} relative group`} title="Cửa hàng">
+                             <ShoppingBagIcon className="w-5 h-5" />
+                             <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full animate-ping"></span>
+                             <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
+                        </button>
+                        
+                        <div className="h-6 w-px bg-current opacity-10"></div>
+
+                        <div className="relative" ref={menuRef}>
+                            <button 
+                                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                                className="flex items-center gap-2 group"
+                            >
+                                <div className="w-9 h-9 rounded-full overflow-hidden ring-2 ring-transparent group-hover:ring-theme-lime transition-all">
+                                    <img
+                                        src={avatarError ? "https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/icon/ic_avatar5.jpg" : settings.avatarUrl}
+                                        alt="Avatar"
+                                        className="w-full h-full object-cover"
+                                        onError={() => setAvatarError(true)}
+                                    />
+                                </div>
+                                <span className={`text-sm font-bold hidden lg:block ${textMain}`}>{settings.username || 'Wibu'}</span>
+                                <SettingsIcon className={`w-4 h-4 opacity-50 group-hover:opacity-100 transition-opacity ${textMain}`} />
+                            </button>
+
+                            {/* Dropdown Menu */}
+                            {isMenuOpen && (
+                                <div className={`absolute top-full right-0 mt-3 w-64 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-white/10 ${isGlass ? 'glass-card' : 'bg-white dark:bg-[#1a1a1a]'}`}>
+                                    <div className="p-3 border-b border-white/10">
+                                        <p className={`text-xs font-bold opacity-50 uppercase tracking-wider mb-2 ${textMain}`}>Tiện ích</p>
+                                        <div className="grid grid-cols-4 gap-2">
+                                            <button onClick={() => { onOfflineClick && onOfflineClick(); setIsMenuOpen(false); }} className="flex flex-col items-center gap-1 p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Offline">
+                                                <DownloadIcon className={`w-5 h-5 ${textMain}`} />
+                                            </button>
+                                            <button onClick={() => { onDataStoreClick && onDataStoreClick(); setIsMenuOpen(false); }} className="flex flex-col items-center gap-1 p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Data">
+                                                <DatabaseIcon className={`w-5 h-5 ${textMain}`} />
+                                            </button>
+                                            <button onClick={() => { onTodoListClick(); setIsMenuOpen(false); }} className="flex flex-col items-center gap-1 p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Todo">
+                                                <ClipboardCheckIcon className={`w-5 h-5 ${textMain}`} />
+                                            </button>
+                                            <button onClick={() => { onCssEditorClick(); setIsMenuOpen(false); }} className="flex flex-col items-center gap-1 p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="CSS">
+                                                <CodeBracketSquareIcon className={`w-5 h-5 ${textMain}`} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="p-2 space-y-1">
+                                        <button onClick={() => { onSettingsChangeClick(); setIsMenuOpen(false); }} className={`flex items-center gap-3 w-full px-4 py-3 text-sm font-bold rounded-xl hover:bg-black/5 dark:hover:bg-white/10 transition-colors ${textMain}`}>
+                                            <SettingsIcon className="w-5 h-5" /> Cài đặt chung
+                                        </button>
+                                        <button onClick={() => { onDonateClick(); setIsMenuOpen(false); }} className={`flex items-center gap-3 w-full px-4 py-3 text-sm font-bold rounded-xl hover:bg-black/5 dark:hover:bg-white/10 transition-colors ${textMain}`}>
+                                            <QRCodeIcon className="w-5 h-5" /> Ủng hộ Admin
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </header>
+        );
+    }
+
     if (settings.headerStyle === 'focus-ui') {
         const pos = settings.headerPosition === 'top' ? 'top-6' : 'bottom-6'; 
         const menuItems = [
@@ -86,7 +202,7 @@ const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchCli
                          <div className="w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center text-indigo-900 shrink-0">
                              <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
                          </div>
-                         <span className="text-white font-bold text-lg tracking-wide hidden sm:block">Focus</span>
+                         <span className="text-white font-bold text-lg tracking-wide hidden sm:block truncate max-w-[100px]">{settings.username || 'Focus'}</span>
                     </div>
 
                     <div className="flex items-center gap-1">
@@ -107,6 +223,12 @@ const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchCli
                     </div>
 
                     <div className="flex items-center gap-1 pl-2 ml-1 border-l border-white/10">
+                         {/* Added Store Button for Focus UI */}
+                         <button onClick={onStoreClick} className="p-2 text-white/50 hover:text-white transition-colors rounded-full hover:bg-white/5 relative">
+                            <ShoppingBagIcon className="w-5 h-5" />
+                            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full"></span>
+                        </button>
+
                          <button onClick={onSettingsClick} className="p-2 text-white/50 hover:text-white transition-colors rounded-full hover:bg-white/5">
                             <SettingsIcon className="w-5 h-5" />
                         </button>
@@ -197,6 +319,8 @@ const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchCli
             { id: 'glossary', icon: BookOpenIcon, onClick: onGlossaryClick, label: 'Thuật ngữ' },
             { id: 'ranking', icon: TrophyIcon, onClick: onRankingClick, label: 'Xếp hạng' },
             { id: 'music', icon: WaifuIcon, onClick: onMusicClick, label: 'Waifu' },
+            // Added Store Button here
+            { id: 'store', icon: ShoppingBagIcon, onClick: onStoreClick, label: 'Cửa hàng' },
             { id: 'donate', icon: QRCodeIcon, onClick: onDonateClick, label: 'Ủng hộ' },
         ];
 
@@ -292,7 +416,9 @@ const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchCli
 
                 <div className={listClasses}>
                     {menuItems.map((item) => {
-                        const isActive = (view === item.id);
+                        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                        // @ts-ignore
+                        const isActive = (view === item.id) || (item.id === 'store' && false); // Fake id logic for store if needed
                         return (
                             <div key={item.id} className={`relative flex justify-center group ${pos === 'left' || pos === 'right' ? 'w-full py-1' : 'h-full px-1'}`}>
                                 {getCurveStyles(isActive)}
@@ -425,6 +551,13 @@ const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchCli
                             <WaifuIcon className="w-5 h-5 md:w-6 md:h-6" />
                         </button>
                         <Tooltip text="Waifu" position={tooltipPosition} />
+                    </div>
+                    {/* Store Button for Classic Theme */}
+                    <div className="relative group">
+                        <button onClick={onStoreClick} className={`p-2.5 rounded-full transition-all duration-300 text-slate-600 dark:text-slate-300 hover:bg-white/10 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white hover:scale-105 ${animationClass}`} aria-label="Cửa hàng">
+                            <ShoppingBagIcon className="w-5 h-5 md:w-6 md:h-6" />
+                        </button>
+                        <Tooltip text="Cửa hàng" position={tooltipPosition} />
                     </div>
                     <div className="relative group">
                         <button onClick={onDonateClick} className={`${donateButtonClass} ${animationClass}`} aria-label="Ủng hộ">

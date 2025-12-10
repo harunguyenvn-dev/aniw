@@ -30,7 +30,7 @@ export interface Settings {
   blockNewTabs: boolean;
   showNotes: boolean;
   headerPosition: 'top' | 'bottom' | 'left' | 'right';
-  headerStyle: 'classic' | 'sidebar-curved' | 'focus-ui';
+  headerStyle: 'classic' | 'sidebar-curved' | 'focus-ui' | 'minimal-tabs';
   resizablePanes: boolean;
   showCalendar: boolean;
   showTodoList: boolean;

@@ -1,61 +1,141 @@
 
-export interface DataSource {
-    id: string;
-    name: string;
-    description: string;
-    author: string;
-    url: string;
-    tags: string[];
+export interface SubscriptionPlan {
+  id: string;
+  duration: string;
+  price: number;
+  originalPrice: number;
+  discount: number;
 }
 
-export const DATA_SOURCES: DataSource[] = [
-    {
-        id: 'Animehay',
-        name: 'Anime Hay',
-        description: 'Data này có một số anime sẽ bị thiếu tập',
-        author: 'harunguyen',
-        url: 'https://raw.githubusercontent.com/harunguyenvn-dev/data/refs/heads/main/anime.csv',
-        tags: ['Anime', 'Main']
-    },
-    {
-        id: 'zophim',
-        name: 'Zophim',
-        description: 'Data này có cả anime, donghua và phim truyền hình .',
-        author: 'harunguyen',
-        url: 'https://raw.githubusercontent.com/harunguyenvn-dev/data/refs/heads/main/api/animehay/data.csv',
-        tags: ['Anime', 'Donghua', 'Phim']
-    },
-        {
-        id: 'Ani4u',
-        name: 'Ani4u',
-        description: 'Data này có cả anime, donghua ( data nay hoi loi mot chut )',
-        author: 'harunguyen',
-        url: 'https://raw.githubusercontent.com/harunguyenvn-dev/data/refs/heads/main/api/ani4u/data.csv',
-        tags: ['Anime', 'Ani4u', 'Phim']
-    },
-    {
-        id: 'ophim-api',
-        name: 'OPhim (API Tự Động)',
-        description: 'Kết nối trực tiếp tới máy chủ OPhim. Cập nhật phim mới và phim chiếu rạp liên tục theo thời gian thực. Hỗ trợ HLS Streaming.',
-        author: 'OPhim Team',
-        url: 'OPHIM_API', // Identifier đặc biệt để App nhận diện
-        tags: ['API', 'Auto-Update', 'HLS', 'Huge DB'],
-        download: "yes"
-    },
-    {
-        id: 'hentai 1',
-        name: 'hentai 1',
-        description: 'Kho data hentai với 2700 bộ xem không bị chán, nếu không xem được thì chọn mở link gốc nhé.',
-        author: 'harunguyen',
-        url: 'https://raw.githubusercontent.com/harunguyenvn-dev/data/refs/heads/main/api/hen2/data.csv',
-        tags: ['18+', 'hentai', '210']
-    },
-    {
-        id: 'hentai 2',
-        name: 'hentai 2',
-        description: 'Kho data hentai với 458 bộ .',
-        author: 'harunguyen',
-        url: 'https://raw.githubusercontent.com/harunguyenvn-dev/data/refs/heads/main/api/hen1/data.csv',
-        tags: ['18+', 'hentai', '210']
-    }
-];
+export interface Episode {
+  name: string;
+  episodeTitle: string;
+  url: string;
+  link: string;
+}
+
+export interface Anime {
+  name: string;
+  episodes: Episode[];
+}
+
+export interface Settings {
+  username: string; // New field for user's name
+  colorMode: 'dark' | 'light';
+  theme: string;
+  isTextBolder: boolean;
+  isTextItalic: boolean;
+  fontFamily: string;
+  disablePopupPlayer: boolean;
+  blockNewTabs: boolean;
+  showNotes: boolean;
+  headerPosition: 'top' | 'bottom' | 'left' | 'right';
+  headerStyle: 'classic' | 'sidebar-curved' | 'focus-ui';
+  resizablePanes: boolean;
+  showCalendar: boolean;
+  showTodoList: boolean;
+  showStopwatch: boolean;
+  avatarUrl: string;
+  enableHoverAnimation: boolean;
+  customAnimeDataUrl: string;
+  customCss?: string;
+  customThemeColors?: {
+    lightest: string;
+    mint: string;
+    lime: string;
+    olive: string;
+    darkest: string;
+  };
+}
+
+export interface AniListTitle {
+  romaji: string;
+  english: string | null;
+}
+
+export interface AniListImage {
+  extraLarge: string;
+  color: string | null;
+}
+
+export interface RankedAnime {
+  id: number;
+  title: AniListTitle;
+  coverImage: AniListImage;
+  averageScore: number;
+  genres: string[];
+}
+
+export interface JikanTitle {
+  type: string;
+  title: string;
+}
+
+export interface JikanImageSet {
+  image_url: string;
+  small_image_url: string;
+  large_image_url: string;
+}
+
+export interface JikanImages {
+  jpg: JikanImageSet;
+  webp: JikanImageSet;
+}
+
+export interface JikanBroadcast {
+  day: string | null;
+  time: string | null;
+  timezone: string | null;
+  string: string | null;
+}
+
+export interface JikanAired {
+  from: string | null;
+  to: string | null;
+  prop: {
+    from: { day: number | null, month: number | null, year: number | null };
+    to: { day: number | null, month: number | null, year: number | null };
+  };
+  string: string | null;
+}
+
+export interface AiringAnime {
+  mal_id: number;
+  title: string;
+  images: JikanImages;
+  synopsis: string;
+  genres: { name: string }[];
+  broadcast: JikanBroadcast;
+  aired: JikanAired;
+  episodes: number | null;
+}
+
+export interface AnimeThemeTrack {
+  id: number;
+  songTitle: string;
+  artist: string;
+  animeName: string;
+  themeType: string;
+  audioUrl: string;
+  coverUrl: string;
+}
+
+export type View = 'home' | 'glossary' | 'ranking' | 'schedule' | 'music' | 'liked-images' | 'random' | 'relaxation' | 'todo-list' | 'offline-videos';
+
+export interface OfflineVideo {
+    id: string;
+    animeName: string;
+    episodeTitle: string;
+    savedAt: number;
+    blob: Blob;
+    fileType: string;
+}
+
+export interface DownloadTask {
+    id: string; // usually episode link
+    animeName: string;
+    episodeTitle: string;
+    episode: Episode;
+    status: 'pending' | 'downloading' | 'completed' | 'error';
+    progress: string; // Text description like "30%" or "Đang ghép file"
+}
