@@ -76,7 +76,7 @@ const ProfileWidget = ({ settings }: { settings: Settings }) => (
             <img src={settings.avatarUrl} alt="Profile" className="w-full h-full object-cover" />
         </div>
         <div>
-            <h4 className="font-bold text-base">Xin chào, Wibu!</h4>
+            <h4 className="font-bold text-base">Xin chào, {settings.username || 'Wibu'}!</h4>
             <p className="text-xs text-slate-500 font-bold">Đã đến lúc cày anime rồi!</p>
         </div>
     </NeoCard>
