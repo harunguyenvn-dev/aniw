@@ -28,8 +28,9 @@ const ANIME_CSV_URL = 'https://raw.githubusercontent.com/harunguyenvn-dev/data/r
 const OPHIM_LIST_API_BASE = 'https://ophim1.com/danh-sach/phim-moi-cap-nhat';
 const OPHIM_DETAIL_API_BASE = 'https://ophim1.com/phim/';
 
-const OPHIM_PAGE_DEPTH = 1370; 
+const OPHIM_PAGE_DEPTH = 1307; 
 const CACHE_DURATION = 24 * 60 * 60 * 1000;
+const CRAWLER_SNAPSHOT_KEY = 'ophim_crawler_snapshot';
 
 const FALLBACK_DATA: Anime[] = [
   {
@@ -394,20 +395,26 @@ const App: React.FC = () => {
             });
         };
 
-        const runOPhimCrawler = async (isUpdateMode: boolean) => {
+        const runOPhimCrawler = async (isUpdateMode: boolean, startPage: number = 1, initialData: Anime[] = []) => {
             try {
                 setIsBackgroundFetching(true);
-                setLoadingStatus("Đang kết nối OPhim...");
                 
-                const collectedAnime: Anime[] = [];
-                let currentPage = 1;
+                // If initializing from snapshot, show resumed message
+                if (startPage > 1 && !isUpdateMode) {
+                    setLoadingStatus(`Đang tiếp tục tải từ trang ${startPage}...`);
+                } else if (!isUpdateMode) {
+                    setLoadingStatus("Đang kết nối OPhim...");
+                }
+                
+                const collectedAnime: Anime[] = [...initialData];
+                let currentPage = startPage;
                 
                 while (currentPage <= OPHIM_PAGE_DEPTH) {
                     try {
                         if (isUpdateMode) {
                             setLoadingStatus(`Đang âm thầm tải trang ${currentPage}...`);
                         } else {
-                            setLoadingStatus(`Đang tải dữ liệu trang ${currentPage}...`);
+                            setLoadingStatus(`Đang tải dữ liệu trang ${currentPage}/${OPHIM_PAGE_DEPTH}...`);
                         }
 
                         const listResponse = await fetch(`${OPHIM_LIST_API_BASE}?page=${currentPage}`);
@@ -447,14 +454,28 @@ const App: React.FC = () => {
                             }
                         }
                         
-                        if (isUpdateMode) {
-                            collectedAnime.push(...pageAnime);
-                        } else {
-                            setAnimeList(prev => {
-                                const newData = [...prev, ...pageAnime];
-                                processData(newData);
-                                return newData;
-                            });
+                        // Add page data to collection
+                        collectedAnime.push(...pageAnime);
+
+                        // --- SMART SAVE: Save Snapshot after every page ---
+                        // This allows resuming if the browser is closed or refreshed
+                        if (!isUpdateMode) {
+                            try {
+                                const snapshot = {
+                                    nextPage: currentPage + 1,
+                                    data: collectedAnime,
+                                    timestamp: Date.now()
+                                };
+                                localStorage.setItem(CRAWLER_SNAPSHOT_KEY, JSON.stringify(snapshot));
+                                
+                                // Update UI instantly so user sees progress
+                                setAnimeList([...collectedAnime]);
+                                if (currentPage === 1 || currentPage % 5 === 0) {
+                                    processData([...collectedAnime]);
+                                }
+                            } catch (e) {
+                                console.error("Failed to save crawler snapshot", e);
+                            }
                         }
                         
                         currentPage++;
@@ -465,21 +486,20 @@ const App: React.FC = () => {
                     }
                 }
                 
+                // Finalize
                 if (isUpdateMode && collectedAnime.length > 0) {
                     setAnimeList(collectedAnime);
                     processData(collectedAnime);
+                    localStorage.setItem('ophim_cache', JSON.stringify(collectedAnime));
                 }
 
                 if (!isUpdateMode) {
-                    const finalData = await new Promise<Anime[]>(resolve => {
-                        setAnimeList(current => {
-                            resolve(current);
-                            return current;
-                        });
-                    });
+                    const finalData = collectedAnime;
+                    setAnimeList(finalData);
+                    processData(finalData);
                     localStorage.setItem('ophim_cache', JSON.stringify(finalData));
-                } else {
-                    localStorage.setItem('ophim_cache', JSON.stringify(collectedAnime));
+                    // Clear snapshot as we finished successfully
+                    localStorage.removeItem(CRAWLER_SNAPSHOT_KEY);
                 }
                 
                 localStorage.setItem('ophim_timestamp', Date.now().toString());
@@ -494,7 +514,6 @@ const App: React.FC = () => {
 
         const loadData = async () => {
             // CRITICAL: Nếu đang Offline, KHÔNG cố tải dữ liệu từ API/CSV để tránh lỗi
-            // Và giữ nguyên View là 'offline-videos' (đã set ở useState khởi tạo)
             if (!navigator.onLine) {
                 setLoading(false);
                 return; 
@@ -512,8 +531,33 @@ const App: React.FC = () => {
             if (urlToTry === 'OPHIM_API') {
                 const cachedData = localStorage.getItem('ophim_cache');
                 const cachedTime = localStorage.getItem('ophim_timestamp');
-                let hasCache = false;
+                
+                // Check for interrupted progress first
+                const crawlerSnapshot = localStorage.getItem(CRAWLER_SNAPSHOT_KEY);
+                
+                let hasSnapshot = false;
+                if (crawlerSnapshot) {
+                    try {
+                        const snapshot = JSON.parse(crawlerSnapshot);
+                        // Resume if snapshot is less than 24h old and has data
+                        if (Date.now() - snapshot.timestamp < 24 * 60 * 60 * 1000 && snapshot.nextPage <= OPHIM_PAGE_DEPTH) {
+                            console.log(`Resuming crawler from page ${snapshot.nextPage}`);
+                            hasSnapshot = true;
+                            // Show existing data immediately
+                            setAnimeList(snapshot.data);
+                            processData(snapshot.data);
+                            // Resume crawling
+                            runOPhimCrawler(false, snapshot.nextPage, snapshot.data);
+                            return; // Exit here, let crawler handle the rest
+                        }
+                    } catch (e) {
+                        console.error("Invalid snapshot", e);
+                        localStorage.removeItem(CRAWLER_SNAPSHOT_KEY);
+                    }
+                }
 
+                // Normal Cache Logic (if no resume needed)
+                let hasCache = false;
                 if (cachedData) {
                     try {
                         const parsedCache = JSON.parse(cachedData);
@@ -531,12 +575,12 @@ const App: React.FC = () => {
 
                 if (hasCache) {
                     if (isExpired) {
-                        runOPhimCrawler(true);
+                        runOPhimCrawler(true); // Silent update
                     } else {
                         setLoading(false);
                     }
                 } else {
-                    runOPhimCrawler(false);
+                    runOPhimCrawler(false); // Full load
                 }
             } else {
                 try {
