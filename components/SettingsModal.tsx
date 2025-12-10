@@ -138,6 +138,19 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
           <h2 className="text-2xl md:text-3xl font-bold mb-6">Cài đặt</h2>
 
           <div className="flex flex-col">
+            {/* New Username Field */}
+            <div className="py-4 border-b border-slate-200 dark:border-slate-700/50">
+                <h4 className="font-semibold text-slate-800 dark:text-slate-200">Tên hiển thị</h4>
+                <p className="text-sm text-slate-600 dark:text-slate-400">Tên này sẽ xuất hiện trên thanh menu và các tiện ích.</p>
+                <input
+                    type="text"
+                    value={settings.username || ''}
+                    onChange={handleInputChange('username')}
+                    placeholder="Wibu-er"
+                    className="w-full mt-3 bg-slate-200/50 dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-theme-lime"
+                />
+            </div>
+
             <div className="py-4 border-b border-slate-200 dark:border-slate-700/50">
                 <h4 className="font-semibold text-slate-800 dark:text-slate-200">Ảnh đại diện</h4>
                 <p className="text-sm text-slate-600 dark:text-slate-400">Dán một liên kết ảnh để thay đổi ảnh đại diện của bạn.</p>
