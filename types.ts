@@ -20,6 +20,7 @@ export interface Anime {
 }
 
 export interface Settings {
+  username: string; // New field for user's name
   colorMode: 'dark' | 'light';
   theme: string;
   isTextBolder: boolean;
