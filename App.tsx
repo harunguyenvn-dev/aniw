@@ -896,6 +896,11 @@ const App: React.FC = () => {
              playerContainerClass = getContentPadding('player');
         }
 
+        // Hân's Fix: Nếu đang xem phim dạng Inline (tắt popup), loại bỏ padding của Header để full màn hình
+        if (settings.disablePopupPlayer) {
+            playerContainerClass = 'p-0 sm:p-2'; 
+        }
+
         
         if (view === 'glossary') {
             return <Glossary containerClassName={containerClass} settings={settings} />;
@@ -1018,7 +1023,7 @@ const App: React.FC = () => {
             )}
             
             {(settings.theme === 'liquid-glass' && view !== 'music' && view !== 'random' && view !== 'relaxation' && view !== 'todo-list' && view !== 'offline-videos') && <LiquidBackground />}
-            {(view !== 'relaxation' && view !== 'todo-list') && (
+            {(view !== 'relaxation' && view !== 'todo-list' && !(selectedAnime && settings.disablePopupPlayer)) && (
                 <Header 
                     onDonateClick={() => setIsDonateModalOpen(true)} 
                     onHomeClick={() => handleViewChange('home')} 
