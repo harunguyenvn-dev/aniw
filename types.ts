@@ -19,6 +19,13 @@ export interface Anime {
   episodes: Episode[];
 }
 
+export interface UserLevelData {
+    currentLevel: number;
+    currentXP: number;
+    nextLevelXP: number;
+    watchedEpisodes: string[]; // Store IDs of watched episodes to prevent farming
+}
+
 export interface Settings {
   username: string; // New field for user's name
   colorMode: 'dark' | 'light';
