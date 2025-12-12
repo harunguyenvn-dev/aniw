@@ -10,6 +10,15 @@ export interface DataSource {
 
 export const DATA_SOURCES: DataSource[] = [
     {
+        id: 'ophim-api',
+        name: 'OPhim (API Tự Động)',
+        description: 'Kết nối trực tiếp tới máy chủ OPhim. Cập nhật phim mới và phim chiếu rạp liên tục theo thời gian thực. Hỗ trợ HLS Streaming.',
+        author: 'OPhim Team',
+        url: 'OPHIM_API', // Identifier đặc biệt để App nhận diện
+        tags: ['API', 'Auto-Update', 'HLS', 'Huge DB', 'Main'],
+        download: "yes"
+    },
+    {
         id: 'Animehay',
         name: 'Anime Hay',
         description: 'Data này có một số anime sẽ bị thiếu tập',
@@ -32,15 +41,6 @@ export const DATA_SOURCES: DataSource[] = [
         author: 'harunguyen',
         url: 'https://raw.githubusercontent.com/harunguyenvn-dev/data/refs/heads/main/api/ani4u/data.csv',
         tags: ['Anime', 'Ani4u', 'Phim']
-    },
-    {
-        id: 'ophim-api',
-        name: 'OPhim (API Tự Động)',
-        description: 'Kết nối trực tiếp tới máy chủ OPhim. Cập nhật phim mới và phim chiếu rạp liên tục theo thời gian thực. Hỗ trợ HLS Streaming.',
-        author: 'OPhim Team',
-        url: 'OPHIM_API', // Identifier đặc biệt để App nhận diện
-        tags: ['API', 'Auto-Update', 'HLS', 'Huge DB', 'Main'],
-        download: "yes"
     },
     {
         id: 'hentai 1',
