@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { HomeIcon, SearchIcon, SettingsIcon, BookOpenIcon, TrophyIcon, CalendarDaysIcon, WaifuIcon, QRCodeIcon, HeartIcon, CodeBracketSquareIcon, ShuffleIcon, SparklesIcon, ClipboardCheckIcon, ShoppingBagIcon, DatabaseIcon, DownloadIcon } from './icons';
-import { Settings, View } from '../types';
+import { Settings, View, UserLevelData } from '../types';
 
 interface HeaderProps {
     onDonateClick: () => void;
@@ -23,6 +23,8 @@ interface HeaderProps {
     installApp: () => void;
     settings: Settings;
     view: View;
+    levelData?: UserLevelData;
+    levelIcons?: {[key: number]: string};
 }
 
 const Tooltip: React.FC<{ text: string; position: 'top' | 'bottom' | 'left' | 'right' }> = ({ text, position }) => {
@@ -38,7 +40,31 @@ const Tooltip: React.FC<{ text: string; position: 'top' | 'bottom' | 'left' | 'r
     return <span className={tooltipClasses}>{text}</span>;
 };
 
-const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchClick, onGlossaryClick, onRankingClick, onScheduleClick, onMusicClick, onSettingsClick, onLikedImagesClick, onCssEditorClick, onRandomClick, onRelaxationClick, onTodoListClick, onStoreClick, onDataStoreClick, onOfflineClick, installApp, settings, view }) => {
+// Component hiển thị User Info & Level
+const UserLevelDisplay: React.FC<{ settings: Settings; levelData?: UserLevelData; levelIcons?: {[key: number]: string}; textMain: string }> = ({ settings, levelData, levelIcons, textMain }) => {
+    if (!levelData || !levelIcons) return <span className={`text-sm font-bold hidden lg:block ${textMain}`}>{settings.username || 'Wibu'}</span>;
+
+    const progressPercent = Math.min((levelData.currentXP / levelData.nextLevelXP) * 100, 100);
+
+    return (
+        <div className="flex flex-col items-start min-w-[100px] hidden lg:flex">
+            <div className="flex items-center gap-2">
+                <span className={`text-sm font-bold ${textMain}`}>{settings.username || 'Wibu'}</span>
+                <img src={levelIcons[levelData.currentLevel]} alt={`Lv${levelData.currentLevel}`} className="h-5 w-auto object-contain" />
+            </div>
+            {/* XP Bar */}
+            <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full mt-0.5 overflow-hidden">
+                <div 
+                    className="h-full bg-gradient-to-r from-theme-mint to-theme-lime rounded-full transition-all duration-500 ease-out"
+                    style={{ width: `${progressPercent}%` }}
+                ></div>
+            </div>
+            <span className="text-[9px] opacity-70 font-mono mt-0.5 ml-auto">{levelData.currentXP}/{levelData.nextLevelXP} XP</span>
+        </div>
+    );
+}
+
+const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchClick, onGlossaryClick, onRankingClick, onScheduleClick, onMusicClick, onSettingsClick, onLikedImagesClick, onCssEditorClick, onRandomClick, onRelaxationClick, onTodoListClick, onStoreClick, onDataStoreClick, onOfflineClick, installApp, settings, view, levelData, levelIcons }) => {
     const [time, setTime] = useState('');
     const [avatarError, setAvatarError] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -68,8 +94,16 @@ const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchCli
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // Helper to open settings from dropdown (rename prop usage)
     const onSettingsChangeClick = onSettingsClick;
+
+    const renderLevelBadge = () => {
+        if (!levelData || !levelIcons) return null;
+        return (
+             <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-white dark:border-black overflow-hidden bg-white z-10">
+                <img src={levelIcons[levelData.currentLevel]} className="w-full h-full object-contain" />
+            </div>
+        );
+    };
 
     // --- STYLE: MINIMAL TABS ---
     if (settings.headerStyle === 'minimal-tabs') {
@@ -133,23 +167,43 @@ const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchCli
                         <div className="relative" ref={menuRef}>
                             <button 
                                 onClick={() => setIsMenuOpen(!isMenuOpen)}
-                                className="flex items-center gap-2 group"
+                                className="flex items-center gap-3 group text-left"
                             >
-                                <div className="w-9 h-9 rounded-full overflow-hidden ring-2 ring-transparent group-hover:ring-theme-lime transition-all">
+                                <div className="w-9 h-9 rounded-full overflow-hidden ring-2 ring-transparent group-hover:ring-theme-lime transition-all relative">
                                     <img
                                         src={avatarError ? "https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/icon/ic_avatar5.jpg" : settings.avatarUrl}
                                         alt="Avatar"
                                         className="w-full h-full object-cover"
                                         onError={() => setAvatarError(true)}
                                     />
+                                     {/* Level Badge Mobile */}
+                                    <div className="absolute bottom-0 right-0 w-3 h-3 bg-theme-lime rounded-full border border-white dark:border-black lg:hidden"></div>
                                 </div>
-                                <span className={`text-sm font-bold hidden lg:block ${textMain}`}>{settings.username || 'Wibu'}</span>
-                                <SettingsIcon className={`w-4 h-4 opacity-50 group-hover:opacity-100 transition-opacity ${textMain}`} />
+                                
+                                <UserLevelDisplay settings={settings} levelData={levelData} levelIcons={levelIcons} textMain={textMain} />
+
+                                <SettingsIcon className={`w-4 h-4 opacity-50 group-hover:opacity-100 transition-opacity ${textMain} hidden lg:block`} />
                             </button>
 
                             {/* Dropdown Menu */}
                             {isMenuOpen && (
                                 <div className={`absolute top-full right-0 mt-3 w-64 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-white/10 ${isGlass ? 'glass-card' : 'bg-white dark:bg-[#1a1a1a]'}`}>
+                                    {/* Mobile Level Info */}
+                                    <div className="lg:hidden p-3 border-b border-white/10 bg-theme-lime/10">
+                                         <div className="flex items-center gap-2 mb-2">
+                                            <span className={`font-bold ${textMain}`}>{settings.username}</span>
+                                            {levelData && levelIcons && <img src={levelIcons[levelData.currentLevel]} className="h-4" />}
+                                         </div>
+                                         {levelData && (
+                                             <>
+                                                <div className="w-full h-1.5 bg-gray-500/20 rounded-full overflow-hidden">
+                                                    <div className="h-full bg-theme-lime" style={{ width: `${Math.min((levelData.currentXP / levelData.nextLevelXP) * 100, 100)}%` }}></div>
+                                                </div>
+                                                <div className="text-[10px] text-right mt-1 opacity-70">{levelData.currentXP}/{levelData.nextLevelXP} XP</div>
+                                             </>
+                                         )}
+                                    </div>
+
                                     <div className="p-3 border-b border-white/10">
                                         <p className={`text-xs font-bold opacity-50 uppercase tracking-wider mb-2 ${textMain}`}>Tiện ích</p>
                                         <div className="grid grid-cols-4 gap-2">
@@ -199,10 +253,13 @@ const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchCli
                      style={{ background: 'linear-gradient(90deg, rgba(46,16,101,0.85) 0%, rgba(30,58,138,0.85) 100%)' }}>
                     
                     <div className="pl-2 pr-4 flex items-center gap-3 border-r border-white/10 mr-1">
-                         <div className="w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center text-indigo-900 shrink-0">
-                             <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                         <div className="w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center text-indigo-900 shrink-0 relative">
+                             {levelData && levelIcons ? <img src={levelIcons[levelData.currentLevel]} className="w-8 h-8 object-contain" /> : <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>}
                          </div>
-                         <span className="text-white font-bold text-lg tracking-wide hidden sm:block truncate max-w-[100px]">{settings.username || 'Focus'}</span>
+                         <div className="flex flex-col">
+                             <span className="text-white font-bold text-lg tracking-wide hidden sm:block truncate max-w-[100px] leading-none">{settings.username || 'Focus'}</span>
+                             {levelData && <span className="text-[10px] text-yellow-400 font-mono hidden sm:block">LV.{levelData.currentLevel}</span>}
+                         </div>
                     </div>
 
                     <div className="flex items-center gap-1">
@@ -223,7 +280,6 @@ const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchCli
                     </div>
 
                     <div className="flex items-center gap-1 pl-2 ml-1 border-l border-white/10">
-                         {/* Added Store Button for Focus UI */}
                          <button onClick={onStoreClick} className="p-2 text-white/50 hover:text-white transition-colors rounded-full hover:bg-white/5 relative">
                             <ShoppingBagIcon className="w-5 h-5" />
                             <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full"></span>
@@ -236,7 +292,7 @@ const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchCli
                         <div className="relative" ref={menuRef}>
                             <button 
                                 onClick={() => setIsMenuOpen(!isMenuOpen)}
-                                className="w-10 h-10 rounded-full border-2 border-white/20 overflow-hidden hover:border-white transition-colors ml-1"
+                                className="w-10 h-10 rounded-full border-2 border-white/20 overflow-hidden hover:border-white transition-colors ml-1 relative"
                             >
                                 <img
                                     src={avatarError ? "https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/icon/ic_avatar5.jpg" : settings.avatarUrl}
@@ -247,6 +303,13 @@ const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchCli
                             </button>
                             {isMenuOpen && (
                                 <div className={`absolute ${pos === 'top-6' ? 'top-full mt-4' : 'bottom-full mb-4'} right-0 w-60 rounded-2xl bg-[#1a1a2e]/95 backdrop-blur-xl border border-white/10 shadow-2xl overflow-hidden text-white animate-in fade-in zoom-in-95 duration-200 origin-bottom-right`}>
+                                     {levelData && (
+                                        <div className="p-3 bg-white/5 border-b border-white/10 text-center">
+                                            <div className="text-xs text-slate-400">EXP Progress</div>
+                                            <div className="w-full h-1 bg-white/10 rounded-full mt-1"><div className="h-full bg-yellow-400 rounded-full" style={{ width: `${Math.min((levelData.currentXP / levelData.nextLevelXP) * 100, 100)}%` }}></div></div>
+                                            <div className="text-[10px] mt-1 text-right">{levelData.currentXP} / {levelData.nextLevelXP} XP</div>
+                                        </div>
+                                    )}
                                     <div className="p-2 space-y-1">
                                         <button onClick={() => { onOfflineClick && onOfflineClick(); setIsMenuOpen(false); }} className="flex items-center gap-3 w-full px-4 py-3 text-sm rounded-xl hover:bg-white/10 transition-colors">
                                             <DownloadIcon className="w-5 h-5 text-teal-400" /> Video đã tải (Offline)
@@ -376,7 +439,7 @@ const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchCli
                 <div className={avatarPosClass} ref={menuRef}>
                      <button 
                         onClick={() => setIsMenuOpen(!isMenuOpen)}
-                        className="w-10 h-10 rounded-full overflow-hidden ring-2 ring-offset-2 ring-offset-transparent ring-theme-lime/70 transition-transform hover:scale-110"
+                        className="w-10 h-10 rounded-full overflow-hidden ring-2 ring-offset-2 ring-offset-transparent ring-theme-lime/70 transition-transform hover:scale-110 relative"
                     >
                         <img
                             src={avatarError ? "https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/icon/ic_avatar5.jpg" : settings.avatarUrl}
@@ -384,9 +447,18 @@ const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchCli
                             className="w-full h-full object-cover"
                             onError={() => setAvatarError(true)}
                         />
+                        {renderLevelBadge()}
                     </button>
                      {isMenuOpen && (
                         <div className={`${menuPositionClass} w-56 rounded-xl shadow-lg overflow-hidden ${['glass-ui', 'liquid-glass'].includes(settings.theme) ? 'glass-card' : 'bg-white dark:bg-theme-darkest border border-slate-200 dark:border-slate-700'}`}>
+                            {levelData && (
+                                <div className="p-2 bg-theme-lime/10 rounded-t-xl mb-1 text-center border-b border-white/10">
+                                    <div className="text-xs font-bold text-theme-darkest dark:text-theme-lime">Level {levelData.currentLevel}</div>
+                                     <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full mt-1 overflow-hidden">
+                                        <div className="h-full bg-theme-lime" style={{ width: `${Math.min((levelData.currentXP / levelData.nextLevelXP) * 100, 100)}%` }}></div>
+                                    </div>
+                                </div>
+                            )}
                             <div className="py-1">
                                 <button onClick={() => { onOfflineClick && onOfflineClick(); setIsMenuOpen(false); }} className="flex items-center gap-3 w-full px-4 py-3 text-sm text-left text-slate-700 dark:text-slate-200 hover:bg-theme-mint/30 dark:hover:bg-theme-olive/30 transition-colors">
                                     <DownloadIcon className="w-5 h-5 text-theme-olive dark:text-theme-lime" /> Video đã tải
@@ -579,7 +651,7 @@ const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchCli
                     <div className="relative" ref={menuRef}>
                         <button 
                             onClick={() => setIsMenuOpen(!isMenuOpen)}
-                            className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-slate-300 dark:bg-gray-700 overflow-hidden ring-2 ring-offset-2 ring-offset-transparent ring-theme-lime/70 transition-transform duration-300 ${avatarAnimationClass} cursor-pointer hover:ring-theme-lime`}
+                            className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-slate-300 dark:bg-gray-700 overflow-hidden ring-2 ring-offset-2 ring-offset-transparent ring-theme-lime/70 transition-transform duration-300 ${avatarAnimationClass} cursor-pointer hover:ring-theme-lime relative`}
                         >
                              <img
                                 src={avatarError ? "https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/icon/ic_avatar5.jpg" : settings.avatarUrl}
@@ -587,9 +659,18 @@ const Header: React.FC<HeaderProps> = ({ onDonateClick, onHomeClick, onSearchCli
                                 className="w-full h-full object-cover"
                                 onError={() => setAvatarError(true)}
                             />
+                            {renderLevelBadge()}
                         </button>
                          {isMenuOpen && (
                             <div className={`${menuPositionClass} w-64 rounded-xl shadow-lg overflow-hidden ${['glass-ui', 'liquid-glass'].includes(settings.theme) ? 'glass-card' : 'bg-white dark:bg-theme-darkest border border-slate-200 dark:border-slate-700'}`}>
+                                {levelData && (
+                                    <div className="p-2 bg-theme-lime/10 rounded-t-xl mb-1 text-center border-b border-white/10">
+                                        <div className="text-xs font-bold text-theme-darkest dark:text-theme-lime">Level {levelData.currentLevel}</div>
+                                         <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full mt-1 overflow-hidden">
+                                            <div className="h-full bg-theme-lime" style={{ width: `${Math.min((levelData.currentXP / levelData.nextLevelXP) * 100, 100)}%` }}></div>
+                                        </div>
+                                    </div>
+                                )}
                                 <div className="py-1">
                                     <button
                                         onClick={() => {
