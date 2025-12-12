@@ -19,8 +19,8 @@ import SplashScreen from './components/SplashScreen';
 import StoreModal from './components/StoreModal';
 import DataStoreModal from './components/DataStoreModal';
 import OfflinePage from './components/OfflinePage';
-import OnboardingModal from './components/OnboardingModal'; // NEW IMPORT
-import { Anime, Episode, Settings, View, DownloadTask } from './types';
+import OnboardingModal from './components/OnboardingModal';
+import { Anime, Episode, Settings, View, DownloadTask, UserLevelData } from './types';
 import { DATA_SOURCES } from './data/sources';
 import { WifiIcon, WifiSlashIcon } from './components/icons';
 
@@ -32,7 +32,8 @@ const OPHIM_DETAIL_API_BASE = 'https://ophim1.com/phim/';
 const OPHIM_PAGE_DEPTH = 1307; 
 const CACHE_DURATION = 24 * 60 * 60 * 1000;
 const CRAWLER_SNAPSHOT_KEY = 'ophim_crawler_snapshot';
-const ONBOARDING_KEY = 'hasCompletedOnboarding'; // NEW KEY
+const ONBOARDING_KEY = 'hasCompletedOnboarding';
+const LEVEL_DATA_KEY = 'aniw_user_level_data_v1'; // NEW KEY for Level
 
 const FALLBACK_DATA: Anime[] = [
   {
@@ -44,6 +45,22 @@ const FALLBACK_DATA: Anime[] = [
   }
 ];
 
+// --- LEVEL ASSETS & LOGIC ---
+const LEVEL_ICONS: {[key: number]: string} = {
+    0: 'https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/app/designer%209/ic_lv0_large.png',
+    1: 'https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/app/designer%209/ic_lv1_large.png',
+    2: 'https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/app/designer%209/ic_lv2_large.png',
+    3: 'https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/app/designer%209/ic_lv3_large.png',
+    4: 'https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/app/designer%209/ic_lv4_large.png',
+    5: 'https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/app/designer%209/ic_lv5_large.png',
+    6: 'https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/app/designer%209/ic_lv6_large.png',
+    7: 'https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/app/designer%209/ic_lv7_large.png',
+    8: 'https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/app/designer%209/ic_lv8_large.png',
+    9: 'https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/app/designer%209/ic_lv9_large.png',
+};
+
+const MAX_LEVEL = 9;
+
 const LiquidBackground: React.FC = () => (
     <div className="fixed inset-0 -z-10 overflow-hidden bg-transparent">
         <div className="absolute top-0 left-0 w-full h-full">
@@ -54,6 +71,54 @@ const LiquidBackground: React.FC = () => (
     </div>
 );
 
+// Level Up Modal Component
+const LevelUpModal: React.FC<{ isOpen: boolean; onClose: () => void; newLevel: number }> = ({ isOpen, onClose, newLevel }) => {
+    if (!isOpen) return null;
+    
+    return (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/80 backdrop-blur-md animate-fade-in" onClick={onClose}>
+            <div className="relative w-full max-w-sm bg-gradient-to-br from-indigo-900 via-purple-900 to-black p-1 rounded-3xl shadow-[0_0_50px_rgba(168,85,247,0.5)] transform animate-bounce-in" onClick={e => e.stopPropagation()}>
+                <div className="bg-[#1a1a1a] rounded-[22px] p-6 text-center overflow-hidden relative">
+                    {/* Confetti / Ray Effect */}
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200%] h-[200%] bg-[conic-gradient(from_0deg,transparent_0deg,rgba(255,255,255,0.1)_20deg,transparent_40deg)] animate-spin-slow pointer-events-none"></div>
+                    
+                    <h2 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-amber-500 mb-2 relative z-10">LEVEL UP!</h2>
+                    <p className="text-white/80 font-bold mb-6 relative z-10">Chúc mừng bạn đã đạt cấp độ {newLevel}</p>
+                    
+                    <div className="relative z-10 w-40 h-40 mx-auto mb-6 rounded-full border-4 border-yellow-500 shadow-xl overflow-hidden group">
+                        <img 
+                            src="https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/icon/ic_avatar2.jpg" 
+                            alt="Level Up" 
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                        />
+                        <div className="absolute inset-0 bg-yellow-500/20 mix-blend-overlay"></div>
+                    </div>
+                    
+                    <div className="flex justify-center gap-2 mb-6">
+                        <img src={LEVEL_ICONS[newLevel]} alt={`Rank ${newLevel}`} className="h-12 object-contain drop-shadow-lg" />
+                    </div>
+
+                    <button 
+                        onClick={onClose}
+                        className="w-full py-3 rounded-xl bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-black text-lg shadow-lg hover:shadow-orange-500/50 hover:scale-[1.02] transition-all relative z-10"
+                    >
+                        TUYỆT VỜI!
+                    </button>
+                </div>
+            </div>
+             <style>{`
+                @keyframes spin-slow {
+                    from { transform: translate(-50%, -50%) rotate(0deg); }
+                    to { transform: translate(-50%, -50%) rotate(360deg); }
+                }
+                .animate-spin-slow {
+                    animation: spin-slow 10s linear infinite;
+                }
+            `}</style>
+        </div>
+    );
+};
+
 const App: React.FC = () => {
     const [isLoadingApp, setIsLoadingApp] = useState(true);
     const [installPrompt, setInstallPrompt] = useState<any>(null);
@@ -63,7 +128,8 @@ const App: React.FC = () => {
     const [isCssEditorOpen, setIsCssEditorOpen] = useState(false);
     const [isStoreOpen, setIsStoreOpen] = useState(false); 
     const [isDataStoreOpen, setIsDataStoreOpen] = useState(false);
-    const [isOnboardingOpen, setIsOnboardingOpen] = useState(false); // NEW STATE
+    const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+    const [showLevelUp, setShowLevelUp] = useState<{show: boolean, level: number}>({show: false, level: 0});
     
     const [animeList, setAnimeList] = useState<Anime[]>([]);
     const [recommendedAnime, setRecommendedAnime] = useState<Anime[]>([]);
@@ -73,7 +139,7 @@ const App: React.FC = () => {
     const [isBackgroundFetching, setIsBackgroundFetching] = useState(false);
     const [error, setError] = useState<string | null>(null);
     
-    // Khởi tạo view dựa trên trạng thái mạng: Nếu offline -> vào thẳng offline-videos
+    // Khởi tạo view dựa trên trạng thái mạng
     const [view, setView] = useState<View>(() => navigator.onLine ? 'home' : 'offline-videos');
     
     const [isOffline, setIsOffline] = useState(!navigator.onLine);
@@ -93,6 +159,63 @@ const App: React.FC = () => {
             return [];
         }
     });
+
+    // --- LEVEL SYSTEM STATE ---
+    const [levelData, setLevelData] = useState<UserLevelData>(() => {
+        try {
+            const saved = localStorage.getItem(LEVEL_DATA_KEY);
+            return saved ? JSON.parse(saved) : { currentLevel: 0, currentXP: 0, nextLevelXP: 1000, watchedEpisodes: [] };
+        } catch {
+            return { currentLevel: 0, currentXP: 0, nextLevelXP: 1000, watchedEpisodes: [] };
+        }
+    });
+
+    // Save level data on change
+    useEffect(() => {
+        localStorage.setItem(LEVEL_DATA_KEY, JSON.stringify(levelData));
+    }, [levelData]);
+
+    const calculateNextLevelXP = (thresholdXP: number) => {
+        // Recipe: (xp hiện tại) * 5 + [ ( xp hiện tại ) * 2 ] - 2000
+        return (thresholdXP * 5) + (thresholdXP * 2) - 2000;
+    };
+
+    const handleXPUpdate = (videoDurationSec: number, episodeId: string) => {
+        if (levelData.watchedEpisodes.includes(episodeId)) return; // Already rewarded
+        if (levelData.currentLevel >= MAX_LEVEL) return; // Max level reached
+
+        let xpGain = 0;
+        const durationMin = videoDurationSec / 60;
+
+        if (durationMin < 10) xpGain = 20;
+        else if (durationMin <= 30) xpGain = 100; // Including 10-30 range
+        else xpGain = 500;
+
+        setLevelData(prev => {
+            let newXP = prev.currentXP + xpGain;
+            let newLevel = prev.currentLevel;
+            let newNextLevelXP = prev.nextLevelXP;
+            let leveledUp = false;
+
+            // Check level up
+            if (newXP >= newNextLevelXP && newLevel < MAX_LEVEL) {
+                newLevel++;
+                leveledUp = true;
+                newNextLevelXP = calculateNextLevelXP(prev.nextLevelXP);
+            }
+
+            if (leveledUp) {
+                setShowLevelUp({ show: true, level: newLevel });
+            }
+
+            return {
+                currentLevel: newLevel,
+                currentXP: newXP,
+                nextLevelXP: newNextLevelXP,
+                watchedEpisodes: [...prev.watchedEpisodes, episodeId]
+            };
+        });
+    };
 
     // Detect offline status
     useEffect(() => {
@@ -126,11 +249,6 @@ const App: React.FC = () => {
         if (installPrompt) {
             installPrompt.prompt();
             installPrompt.userChoice.then((choiceResult: any) => {
-                if (choiceResult.outcome === 'accepted') {
-                    console.log('User accepted the A2HS prompt');
-                } else {
-                    console.log('User dismissed the A2HS prompt');
-                }
                 setInstallPrompt(null);
             });
         } else {
@@ -157,7 +275,7 @@ const App: React.FC = () => {
             const savedSettings = localStorage.getItem('animeAppSettings');
             const parsed = savedSettings ? JSON.parse(savedSettings) : {};
             return {
-                username: parsed.username || 'Wibu-er', // Default user
+                username: parsed.username || 'Wibu-er',
                 colorMode: parsed.colorMode || 'light',
                 theme: parsed.theme || 'green-screen',
                 isTextBolder: parsed.isTextBolder || false,
@@ -167,7 +285,7 @@ const App: React.FC = () => {
                 blockNewTabs: parsed.blockNewTabs !== undefined ? parsed.blockNewTabs : true,
                 showNotes: parsed.showNotes || false,
                 headerPosition: parsed.headerPosition || 'top',
-                headerStyle: parsed.headerStyle || 'minimal-tabs', // Changed Default to minimal-tabs
+                headerStyle: parsed.headerStyle || 'minimal-tabs',
                 resizablePanes: parsed.resizablePanes || false,
                 showCalendar: parsed.showCalendar || false,
                 showTodoList: parsed.showTodoList || false,
@@ -196,7 +314,7 @@ const App: React.FC = () => {
                 blockNewTabs: true,
                 showNotes: false,
                 headerPosition: 'top',
-                headerStyle: 'minimal-tabs', // Changed Default to minimal-tabs
+                headerStyle: 'minimal-tabs',
                 resizablePanes: false,
                 showCalendar: false,
                 showTodoList: false,
@@ -216,18 +334,15 @@ const App: React.FC = () => {
         }
     });
 
-    // Check for Onboarding on Mount
     useEffect(() => {
         const hasCompleted = localStorage.getItem(ONBOARDING_KEY);
         if (!hasCompleted) {
-            // Delay slightly to let splash screen finish
             setTimeout(() => {
                 setIsOnboardingOpen(true);
             }, 1000);
         }
     }, []);
 
-    // Handle Onboarding Completion
     const handleOnboardingComplete = (name: string, avatar: string) => {
         const newSettings = { ...settings, username: name, avatarUrl: avatar };
         setSettings(newSettings);
@@ -238,14 +353,12 @@ const App: React.FC = () => {
     useEffect(() => {
         const firstVisitKey = 'firstVisitTimestamp';
         const hasShownDonateKey = 'hasShownDonateModal';
-        
         const firstVisit = localStorage.getItem(firstVisitKey);
         
         if (!firstVisit) {
             localStorage.setItem(firstVisitKey, Date.now().toString());
         } else {
             const hasShown = localStorage.getItem(hasShownDonateKey);
-            
             if (!hasShown) {
                 const now = Date.now();
                 const firstVisitTime = parseInt(firstVisit, 10);
@@ -260,11 +373,9 @@ const App: React.FC = () => {
     }, []);
 
     useEffect(() => {
-
         audioRef.current = new Audio();
         audioRef.current.volume = 0.5;
         return () => {
-
             if (audioRef.current) {
                 audioRef.current.pause();
                 audioRef.current = null;
@@ -302,13 +413,11 @@ const App: React.FC = () => {
     useEffect(() => {
         const styleId = 'user-custom-css';
         let styleElement = document.getElementById(styleId);
-        
         if (!styleElement) {
             styleElement = document.createElement('style');
             styleElement.id = styleId;
             document.head.appendChild(styleElement);
         }
-        
         styleElement.innerHTML = settings.customCss || '';
     }, [settings.customCss]);
 
@@ -318,10 +427,8 @@ const App: React.FC = () => {
         } else {
             document.documentElement.classList.remove('dark');
         }
-
         document.documentElement.setAttribute('data-theme', settings.theme);
         document.documentElement.style.setProperty('--font-family', settings.fontFamily);
-
 
         const rootDiv = document.getElementById('root');
         if (rootDiv) {
@@ -388,7 +495,6 @@ const App: React.FC = () => {
                         skipEmptyLines: true,
                         complete: (results: { data: { name: string; episodes: string; url: string; link: string; }[] }) => {
                             const groupedAnime: { [key: string]: Episode[] } = {};
-    
                             results.data.forEach(row => {
                                 if (row.name && row.episodes) {
                                     if (!groupedAnime[row.name]) {
@@ -402,7 +508,6 @@ const App: React.FC = () => {
                                     });
                                 }
                             });
-    
                             const animeArray: Anime[] = Object.keys(groupedAnime).map(name => ({
                                 name: name,
                                 episodes: groupedAnime[name],
@@ -479,7 +584,6 @@ const App: React.FC = () => {
                         
                         collectedAnime.push(...pageAnime);
 
-                        // --- SMART SAVE WITH TRY-CATCH ---
                         if (!isUpdateMode) {
                             try {
                                 const snapshot = {
@@ -487,12 +591,9 @@ const App: React.FC = () => {
                                     data: collectedAnime,
                                     timestamp: Date.now()
                                 };
-                                // Try to save snapshot. If it fails due to size, we catch it.
                                 localStorage.setItem(CRAWLER_SNAPSHOT_KEY, JSON.stringify(snapshot));
                             } catch (e: any) {
                                 console.warn("Snapshot save failed (Quota Exceeded). Continue without saving snapshot.");
-                                // Optional: Clear old snapshot to prevent corrupt state loop
-                                // localStorage.removeItem(CRAWLER_SNAPSHOT_KEY); 
                             }
                             
                             setAnimeList([...collectedAnime]);
@@ -509,7 +610,6 @@ const App: React.FC = () => {
                     }
                 }
                 
-                // Finalize
                 if (isUpdateMode && collectedAnime.length > 0) {
                     setAnimeList(collectedAnime);
                     processData(collectedAnime);
@@ -560,7 +660,6 @@ const App: React.FC = () => {
                 const cachedData = localStorage.getItem('ophim_cache');
                 const cachedTime = localStorage.getItem('ophim_timestamp');
                 
-                // Check for interrupted progress first
                 const crawlerSnapshot = localStorage.getItem(CRAWLER_SNAPSHOT_KEY);
                 
                 let hasSnapshot = false;
@@ -599,12 +698,12 @@ const App: React.FC = () => {
 
                 if (hasCache) {
                     if (isExpired) {
-                        runOPhimCrawler(true); // Silent update
+                        runOPhimCrawler(true); 
                     } else {
                         setLoading(false);
                     }
                 } else {
-                    runOPhimCrawler(false); // Full load
+                    runOPhimCrawler(false);
                 }
             } else {
                 try {
@@ -630,7 +729,6 @@ const App: React.FC = () => {
     }, [settings.customAnimeDataUrl]);
 
     // --- DOWNLOAD MANAGER LOGIC ---
-    
     const saveToIndexedDB = async (blob: Blob, task: DownloadTask, fileType: string) => {
         const dbRequest = indexedDB.open('aniw-offline-db', 1);
         
@@ -968,6 +1066,7 @@ const App: React.FC = () => {
                         allowDownload={isDownloadAllowed}
                         downloadQueue={downloadQueue}
                         addToQueue={addToQueue}
+                        onVideoProgress={handleXPUpdate} // Added Level XP Callback
                     />;
         }
 
@@ -998,6 +1097,7 @@ const App: React.FC = () => {
                 onComplete={handleOnboardingComplete} 
                 currentSettings={settings}
             />
+            <LevelUpModal isOpen={showLevelUp.show} onClose={() => setShowLevelUp({show: false, level: 0})} newLevel={showLevelUp.level} />
             
             {/* Global Download Indicator (Mini Status) */}
             {downloadQueue.length > 0 && (
@@ -1068,6 +1168,8 @@ const App: React.FC = () => {
                     installApp={handleInstallApp}
                     settings={settings}
                     view={view}
+                    levelData={levelData} // NEW Prop
+                    levelIcons={LEVEL_ICONS} // NEW Prop
                 />
             )}
             {renderContent()}
