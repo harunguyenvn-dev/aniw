@@ -15,6 +15,11 @@ const PRESET_AVATARS = [
     'https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/icon/ic_avatar2.jpg',
     'https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/icon/ic_avatar3.jpg',
     'https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/icon/ic_avatar4.jpg',
+    'https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/icon/ic_avatar10.jpg',
+    'https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/icon/ic_avatar11.jpg',
+    'https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/icon/ic_avatar6.jpg',
+    'https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/icon/ic_avatar7.jpg',
+    'https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/icon/ic_avatar9.jpg',
 ];
 
 const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete, currentSettings }) => {
