@@ -51,30 +51,19 @@ const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, animeList, o
                 </button>
             </div>
 
-            {/* LOADING STATE VỚI HÌNH ẢNH MỚI */}
+            {/* STATUS FETCHING REAL-TIME */}
             {isBackgroundFetching && (
-                <div className="mt-8 flex flex-col items-center justify-center gap-4 animate-fade-in">
-                    <div className="relative">
-                        <img 
-                            src="https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/app/designer%204/search_loading_0.png" 
-                            alt="Searching..." 
-                            className="w-32 h-32 object-contain animate-bounce-gentle drop-shadow-2xl"
-                        />
-                         {/* Bóng đổ nhẹ dưới chân ảnh */}
-                        <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-20 h-3 bg-black/20 blur-md rounded-full animate-pulse"></div>
-                    </div>
-                    
-                    <div className="px-5 py-2 rounded-full bg-theme-lime/10 border border-theme-lime/30 flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-theme-lime animate-ping"></div>
-                        <span className="text-sm font-bold text-theme-darkest dark:text-theme-lightest">
-                            {backgroundStatus || 'Đang lục tung kho dữ liệu...'}
-                        </span>
-                    </div>
+                <div className="mt-4 px-4 py-2 rounded-xl bg-theme-lime/10 border border-theme-lime/30 flex items-center gap-3 animate-fade-in">
+                    <div className="w-2 h-2 rounded-full bg-theme-lime animate-ping"></div>
+                    <span className="text-xs font-bold text-theme-darkest dark:text-theme-lightest opacity-80">
+                        {backgroundStatus || 'Đang cập nhật dữ liệu mới...'}
+                    </span>
                 </div>
             )}
         </div>
 
-        {searchTerm && !isBackgroundFetching && (
+        {/* LIST KẾT QUẢ - HIỂN THỊ NGAY CẢ KHI ĐANG FETCH */}
+        {searchTerm && (
             <div className="border-t border-slate-200 dark:border-white/10 max-h-[60vh] overflow-y-auto custom-scrollbar">
                  {filteredAnime.length > 0 ? (
                     <ul className="p-2">
@@ -94,16 +83,35 @@ const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, animeList, o
                                 </button>
                             </li>
                         ))}
+                        {isBackgroundFetching && (
+                             <li className="p-4 text-center text-xs text-slate-400 italic animate-pulse">
+                                 Đang tìm thêm kết quả mới...
+                             </li>
+                        )}
                     </ul>
                 ) : (
                     <div className="p-12 text-center flex flex-col items-center justify-center animate-fade-in">
-                         <img 
-                            src="https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/app/designer%204/img_holder_search_failed.png" 
-                            alt="Not Found" 
-                            className="w-40 h-40 object-contain mb-4 drop-shadow-lg opacity-90 hover:scale-105 transition-transform duration-300"
-                         />
-                         <p className="font-bold text-lg text-slate-700 dark:text-slate-200">Hổng tìm thấy anime nào tên này cả.</p>
-                         <p className="text-sm text-slate-500 dark:text-slate-400">Thử từ khóa khác xem sao nhé bro!</p>
+                        {isBackgroundFetching ? (
+                            <>
+                                <img 
+                                    src="https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/app/designer%204/search_loading_0.png" 
+                                    alt="Searching..." 
+                                    className="w-24 h-24 object-contain animate-bounce-gentle drop-shadow-lg mb-4"
+                                />
+                                <p className="font-bold text-slate-700 dark:text-slate-200">Đang lục tung kho dữ liệu...</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Kiên nhẫn xíu nhé Bro</p>
+                            </>
+                        ) : (
+                            <>
+                                <img 
+                                    src="https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/app/designer%204/img_holder_search_failed.png" 
+                                    alt="Not Found" 
+                                    className="w-40 h-40 object-contain mb-4 drop-shadow-lg opacity-90 hover:scale-105 transition-transform duration-300"
+                                />
+                                <p className="font-bold text-lg text-slate-700 dark:text-slate-200">Hổng tìm thấy anime nào tên này cả.</p>
+                                <p className="text-sm text-slate-500 dark:text-slate-400">Thử từ khóa khác xem sao nhé bro!</p>
+                            </>
+                        )}
                     </div>
                 )}
             </div>
