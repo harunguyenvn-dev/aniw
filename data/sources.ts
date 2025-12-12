@@ -15,7 +15,7 @@ export const DATA_SOURCES: DataSource[] = [
         description: 'Data này có một số anime sẽ bị thiếu tập',
         author: 'harunguyen',
         url: 'https://raw.githubusercontent.com/harunguyenvn-dev/data/refs/heads/main/anime.csv',
-        tags: ['Anime', 'Main']
+        tags: ['Anime', 'Donghua']
     },
     {
         id: 'zophim',
@@ -39,7 +39,7 @@ export const DATA_SOURCES: DataSource[] = [
         description: 'Kết nối trực tiếp tới máy chủ OPhim. Cập nhật phim mới và phim chiếu rạp liên tục theo thời gian thực. Hỗ trợ HLS Streaming.',
         author: 'OPhim Team',
         url: 'OPHIM_API', // Identifier đặc biệt để App nhận diện
-        tags: ['API', 'Auto-Update', 'HLS', 'Huge DB'],
+        tags: ['API', 'Auto-Update', 'HLS', 'Huge DB', 'Main'],
         download: "yes"
     },
     {
