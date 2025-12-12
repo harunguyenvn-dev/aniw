@@ -542,7 +542,8 @@ const App: React.FC = () => {
                         if (isUpdateMode) {
                             setLoadingStatus(`Đang âm thầm tải trang ${currentPage}...`);
                         } else {
-                            setLoadingStatus(`Đang tải dữ liệu trang ${currentPage}/${OPHIM_PAGE_DEPTH}...`);
+                            // UPDATE: Show count to user
+                            setLoadingStatus(`Đang tải trang ${currentPage}/${OPHIM_PAGE_DEPTH}... (Đã tìm thấy ${collectedAnime.length} bộ)`);
                         }
 
                         const listResponse = await fetch(`${OPHIM_LIST_API_BASE}?page=${currentPage}`);
@@ -596,7 +597,10 @@ const App: React.FC = () => {
                                 console.warn("Snapshot save failed (Quota Exceeded). Continue without saving snapshot.");
                             }
                             
+                            // UPDATE: Update the search list immediately so user can search while fetching
                             setAnimeList([...collectedAnime]);
+
+                            // Update the main UI (Recommended/Sorted) less frequently to avoid performance hit
                             if (currentPage === 1 || currentPage % 5 === 0) {
                                 processData([...collectedAnime]);
                             }
