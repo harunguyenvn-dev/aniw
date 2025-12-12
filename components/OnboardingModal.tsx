@@ -20,6 +20,7 @@ const PRESET_AVATARS = [
     'https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/icon/ic_avatar6.jpg',
     'https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/icon/ic_avatar7.jpg',
     'https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/icon/ic_avatar9.jpg',
+    'https://raw.githubusercontent.com/niyakipham/bilibili/refs/heads/main/2D/2D%20tv%20illustration/headphone.png',
 ];
 
 const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete, currentSettings }) => {
