@@ -21,9 +21,10 @@ interface AnimePlayerProps {
     allowDownload?: boolean;
     downloadQueue?: DownloadTask[];
     addToQueue?: (task: DownloadTask) => void;
+    onVideoProgress?: (duration: number, episodeId: string) => void;
 }
 
-// --- MINI WIDGETS (Cho gọn code) ---
+// --- MINI WIDGETS ---
 
 const MiniStopwatch: React.FC = () => {
     const [time, setTime] = useState(0);
@@ -157,7 +158,8 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
     containerClassName, 
     allowDownload = false,
     downloadQueue = [],
-    addToQueue 
+    addToQueue,
+    onVideoProgress
 }) => {
     const { blockNewTabs, disablePopupPlayer, theme, resizablePanes } = settings;
     const [currentEpisode, setCurrentEpisode] = useState<Episode>(anime.episodes[0]);
@@ -182,8 +184,31 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
     const episodeListRef = useRef<HTMLUListElement>(null);
     const sidebarRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
+    const lastProgressTime = useRef(0);
     
     const isM3U8 = currentEpisode.link.includes('.m3u8');
+
+    // --- XP Tracking Logic for Native Video ---
+    const handleTimeUpdate = () => {
+        if (!videoRef.current || !onVideoProgress) return;
+        
+        const video = videoRef.current;
+        const currentTime = video.currentTime;
+        const duration = video.duration;
+
+        if (isNaN(duration) || duration === 0) return;
+
+        // Check if user is near end (last 5 mins or 90% if short)
+        const timeLeft = duration - currentTime;
+        
+        if (timeLeft <= 300 || (duration < 600 && currentTime / duration > 0.9)) {
+             // Only fire if we haven't fired in the last 10 seconds to avoid spamming the App component
+             if (Date.now() - lastProgressTime.current > 10000) {
+                 onVideoProgress(duration, currentEpisode.link);
+                 lastProgressTime.current = Date.now();
+             }
+        }
+    };
 
     // --- RESIZE HANDLERS ---
     const startResizingHorizontal = useCallback((mouseDownEvent: React.MouseEvent) => {
@@ -254,7 +279,7 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
     };
 
     const getDownloadState = (episodeLink: string) => {
-        return downloadQueue.find(t => t.id === episodeLink);
+        return downloadQueue?.find(t => t.id === episodeLink);
     };
 
     // --- LOGIC: History & Favorites ---
@@ -363,7 +388,14 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
         if (isM3U8) {
             return (
                 <div className="w-full h-full bg-black relative flex items-center justify-center">
-                    <video ref={videoRef} className="w-full h-full object-contain" controls autoPlay playsInline />
+                    <video 
+                        ref={videoRef} 
+                        className="w-full h-full object-contain" 
+                        controls 
+                        autoPlay 
+                        playsInline 
+                        onTimeUpdate={handleTimeUpdate}
+                    />
                 </div>
             );
         }
@@ -384,7 +416,6 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
 
     // --- POPUP PLAYER MODE ---
     if (disablePopupPlayer) {
-        // [Giữ nguyên code Popup Player như cũ cho an toàn, chỉ tập trung sửa Main UI]
         const popupPlayerClasses = ['glass-ui', 'liquid-glass'].includes(theme) ? 'glass-card' : 'bg-theme-darkest/95 backdrop-blur-lg border-l border-white/10';
         return (
             <div className="fixed inset-0 bg-black z-60 animate-fade-in flex flex-col">
