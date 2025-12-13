@@ -24,10 +24,7 @@ import { Anime, Episode, Settings, View, DownloadTask, UserLevelData } from './t
 import { DATA_SOURCES } from './data/sources';
 import { WifiIcon, WifiSlashIcon } from './components/icons';
 
-// CHANGE: Default source is now OPHIM_API
-const ANIME_CSV_URL = 'OPHIM_API';
-// CHANGE: Keep the old CSV as a backup
-const BACKUP_CSV_URL = 'https://raw.githubusercontent.com/harunguyenvn-dev/data/refs/heads/main/anime.csv';
+const ANIME_CSV_URL = 'https://raw.githubusercontent.com/harunguyenvn-dev/data/refs/heads/main/anime.csv';
 
 const OPHIM_LIST_API_BASE = 'https://ophim1.com/danh-sach/phim-moi-cap-nhat';
 const OPHIM_DETAIL_API_BASE = 'https://ophim1.com/phim/';
@@ -486,7 +483,7 @@ const App: React.FC = () => {
                     }
                     const response = await fetch(url);
                     if (!response.ok) {
-                         if (url !== ANIME_CSV_URL && url !== BACKUP_CSV_URL) {
+                         if (url !== ANIME_CSV_URL) {
                              throw new Error(`Custom URL failed with status: ${response.status}`);
                          }
                          throw new Error(`Network response was not ok for default URL. Status: ${response.status}`);
@@ -719,8 +716,7 @@ const App: React.FC = () => {
                 } catch (e: any) {
                     if (settings.customAnimeDataUrl) {
                         try {
-                            // CHANGED: Use BACKUP_CSV_URL instead of ANIME_CSV_URL since default is now OPHIM_API
-                            const data = await fetchAndParseCSV(BACKUP_CSV_URL);
+                            const data = await fetchAndParseCSV(ANIME_CSV_URL);
                             processData(data);
                             setError(null);
                         } catch (e2) {
