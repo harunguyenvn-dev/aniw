@@ -184,11 +184,37 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
     const episodeListRef = useRef<HTMLUListElement>(null);
     const sidebarRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
+    
+    // --- LEVELING SYSTEM FIX ---
+    // Track watch time independently of the video element (to support Iframe/Embeds)
+    const watchTimerRef = useRef<number>(0);
     const lastProgressTime = useRef(0);
     
     const isM3U8 = currentEpisode.link.includes('.m3u8');
 
-    // --- XP Tracking Logic for Native Video ---
+    // Reset watch timer when episode changes
+    useEffect(() => {
+        watchTimerRef.current = 0;
+    }, [currentEpisode]);
+
+    // Timer logic to track "engagement" time
+    useEffect(() => {
+        const timer = setInterval(() => {
+            // Only count if window is focused/visible to be fair
+            if (document.visibilityState === 'visible') {
+                watchTimerRef.current += 1;
+            }
+
+            if (watchTimerRef.current === 60 && onVideoProgress) {
+
+                onVideoProgress(1500, currentEpisode.link);
+            }
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, [currentEpisode, onVideoProgress]);
+
+    // --- Native Video Tracking (Keep for accuracy on HLS) ---
     const handleTimeUpdate = () => {
         if (!videoRef.current || !onVideoProgress) return;
         
@@ -198,7 +224,7 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
 
         if (isNaN(duration) || duration === 0) return;
 
-        // Check if user is near end (last 5 mins or 90% if short)
+ 
         const timeLeft = duration - currentTime;
         
         if (timeLeft <= 300 || (duration < 600 && currentTime / duration > 0.9)) {
@@ -668,3 +694,4 @@ const AnimePlayer: React.FC<AnimePlayerProps> = ({
 };
 
 export default AnimePlayer;
+
