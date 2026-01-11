@@ -43,6 +43,15 @@ export const DATA_SOURCES: DataSource[] = [
         download: "yes"
     },
     {
+        id: 'kkphim-api',
+        name: 'KKPhim',
+        description: 'Nguồn dữ liệu từ KKPhim (PhimApi). Tốc độ tải nhanh, nhiều phim mới cập nhật liên tục. Hỗ trợ xem mượt mà.',
+        author: 'KKPhim Team',
+        url: 'KKPHIM_API',
+        tags: ['API', 'Auto-Update', 'HLS', 'Huge DB'],
+        download: "yes"
+    },
+    {
         id: 'hentai 1',
         name: 'hentai 1',
         description: 'Kho data hentai với 2700 bộ xem không bị chán, nếu không xem được thì chọn mở link gốc nhé.',
