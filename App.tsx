@@ -23,6 +23,7 @@ import OnboardingModal from './components/OnboardingModal';
 import { Anime, Episode, Settings, View, DownloadTask, UserLevelData } from './types';
 import { DATA_SOURCES } from './data/sources';
 import { WifiIcon, WifiSlashIcon } from './components/icons';
+import { fetchKKPhimList, fetchKKPhimDetails } from './data/api/kkphim'; // Import API mới
 
 const ANIME_CSV_URL = 'https://raw.githubusercontent.com/harunguyenvn-dev/data/refs/heads/main/anime.csv';
 
@@ -30,10 +31,12 @@ const OPHIM_LIST_API_BASE = 'https://ophim1.com/danh-sach/phim-moi-cap-nhat';
 const OPHIM_DETAIL_API_BASE = 'https://ophim1.com/phim/';
 
 const OPHIM_PAGE_DEPTH = 1307; 
+const KKPHIM_PAGE_DEPTH = 500; // Limit depth for KKPhim crawler for now
 const CACHE_DURATION = 24 * 60 * 60 * 1000;
 const CRAWLER_SNAPSHOT_KEY = 'ophim_crawler_snapshot';
+const KKPHIM_SNAPSHOT_KEY = 'kkphim_crawler_snapshot';
 const ONBOARDING_KEY = 'hasCompletedOnboarding';
-const LEVEL_DATA_KEY = 'aniw_user_level_data_v1'; // NEW KEY for Level
+const LEVEL_DATA_KEY = 'aniw_user_level_data_v1';
 
 const FALLBACK_DATA: Anime[] = [
   {
@@ -456,7 +459,8 @@ const App: React.FC = () => {
             };
 
             let sortedAnime = data;
-            if (!settings.customAnimeDataUrl || settings.customAnimeDataUrl !== 'OPHIM_API') {
+            // Only sort if we are NOT using a specific API mode that relies on its own ordering (like Recent Updates)
+            if (settings.customAnimeDataUrl !== 'OPHIM_API' && settings.customAnimeDataUrl !== 'KKPHIM_API') {
                 sortedAnime = [...data].sort((a, b) => {
                     const tierA = getTier(a.episodes.length);
                     const tierB = getTier(b.episodes.length);
@@ -542,7 +546,6 @@ const App: React.FC = () => {
                         if (isUpdateMode) {
                             setLoadingStatus(`Đang âm thầm tải trang ${currentPage}...`);
                         } else {
-                            // UPDATE: Show count to user
                             setLoadingStatus(`Đang tải trang ${currentPage}/${OPHIM_PAGE_DEPTH}... (Đã tìm thấy ${collectedAnime.length} bộ)`);
                         }
 
@@ -594,13 +597,11 @@ const App: React.FC = () => {
                                 };
                                 localStorage.setItem(CRAWLER_SNAPSHOT_KEY, JSON.stringify(snapshot));
                             } catch (e: any) {
-                                console.warn("Snapshot save failed (Quota Exceeded). Continue without saving snapshot.");
+                                console.warn("Snapshot save failed (Quota Exceeded)");
                             }
                             
-                            // UPDATE: Update the search list immediately so user can search while fetching
                             setAnimeList([...collectedAnime]);
 
-                            // Update the main UI (Recommended/Sorted) less frequently to avoid performance hit
                             if (currentPage === 1 || currentPage % 5 === 0) {
                                 processData([...collectedAnime]);
                             }
@@ -620,7 +621,7 @@ const App: React.FC = () => {
                     try {
                         localStorage.setItem('ophim_cache', JSON.stringify(collectedAnime));
                     } catch (e) {
-                        console.warn("Failed to cache full OPhim list (Quota Exceeded)");
+                         console.warn("Failed to cache full list");
                     }
                 }
 
@@ -632,7 +633,7 @@ const App: React.FC = () => {
                         localStorage.setItem('ophim_cache', JSON.stringify(finalData));
                         localStorage.removeItem(CRAWLER_SNAPSHOT_KEY);
                     } catch (e) {
-                         console.warn("Failed to cache final data (Quota Exceeded)");
+                        console.warn("Failed to cache final data");
                     }
                 }
                 
@@ -643,6 +644,101 @@ const App: React.FC = () => {
             } catch (error: any) {
                 console.error("Crawler Error:", error);
                 setIsBackgroundFetching(false);
+            }
+        };
+
+        // --- KKPHIM CRAWLER ---
+        const runKKPhimCrawler = async (isUpdateMode: boolean, startPage: number = 1, initialData: Anime[] = []) => {
+            try {
+                setIsBackgroundFetching(true);
+                
+                if (!isUpdateMode) {
+                    setLoadingStatus("Đang kết nối KKPhim...");
+                }
+
+                const collectedAnime: Anime[] = [...initialData];
+                let currentPage = startPage;
+
+                while (currentPage <= KKPHIM_PAGE_DEPTH) {
+                    try {
+                         if (isUpdateMode) {
+                            setLoadingStatus(`KKPhim: Đang cập nhật trang ${currentPage}...`);
+                        } else {
+                            setLoadingStatus(`KKPhim: Đang tải trang ${currentPage}... (Đã có ${collectedAnime.length} bộ)`);
+                        }
+
+                        // Use the imported API helper
+                        const listData = await fetchKKPhimList(currentPage);
+                        const items = listData.items || [];
+                        if (items.length === 0) break;
+
+                        const pageAnime: Anime[] = [];
+
+                        // Fetch details for each item to get episodes
+                        // Note: To be polite to the API, we can fetch sequentially or with limited concurrency
+                        for (const item of items) {
+                            const details = await fetchKKPhimDetails(item.slug);
+                            if (details) {
+                                pageAnime.push(details);
+                            }
+                        }
+
+                        collectedAnime.push(...pageAnime);
+
+                        if (!isUpdateMode) {
+                             // Save snapshot periodically
+                             if (currentPage % 2 === 0) {
+                                try {
+                                    const snapshot = {
+                                        nextPage: currentPage + 1,
+                                        data: collectedAnime,
+                                        timestamp: Date.now()
+                                    };
+                                    localStorage.setItem(KKPHIM_SNAPSHOT_KEY, JSON.stringify(snapshot));
+                                } catch(e) {}
+                             }
+
+                             setAnimeList([...collectedAnime]);
+                             // Update UI more frequently for responsiveness
+                             processData([...collectedAnime]); 
+                        }
+
+                        currentPage++;
+                        // Avoid DDOS-ing the API
+                        await new Promise(resolve => setTimeout(resolve, 100));
+
+                    } catch (err) {
+                        console.error(`Error processing KKPhim page ${currentPage}`, err);
+                        currentPage++;
+                    }
+                }
+
+                if (isUpdateMode && collectedAnime.length > 0) {
+                    setAnimeList(collectedAnime);
+                    processData(collectedAnime);
+                    try {
+                        localStorage.setItem('kkphim_cache', JSON.stringify(collectedAnime));
+                    } catch(e) {}
+                }
+
+                if (!isUpdateMode) {
+                    const finalData = collectedAnime;
+                    setAnimeList(finalData);
+                    processData(finalData);
+                    try {
+                        localStorage.setItem('kkphim_cache', JSON.stringify(finalData));
+                        localStorage.removeItem(KKPHIM_SNAPSHOT_KEY);
+                    } catch(e) {}
+                }
+
+                localStorage.setItem('kkphim_timestamp', Date.now().toString());
+                setIsBackgroundFetching(false);
+                setLoadingStatus("");
+
+            } catch (error: any) {
+                console.error("KKPhim Crawler Error:", error);
+                setIsBackgroundFetching(false);
+                setLoadingStatus("Lỗi khi tải KKPhim");
             }
         };
 
@@ -660,26 +756,71 @@ const App: React.FC = () => {
 
             const urlToTry = settings.customAnimeDataUrl || ANIME_CSV_URL;
 
+            // --- KKPHIM LOGIC ---
+            if (urlToTry === 'KKPHIM_API') {
+                 const cachedData = localStorage.getItem('kkphim_cache');
+                 const cachedTime = localStorage.getItem('kkphim_timestamp');
+                 const crawlerSnapshot = localStorage.getItem(KKPHIM_SNAPSHOT_KEY);
+
+                 // Check for snapshot (unfinished download)
+                 if (crawlerSnapshot) {
+                    try {
+                        const snapshot = JSON.parse(crawlerSnapshot);
+                        // Resume if snapshot is fresh (< 24h)
+                        if (Date.now() - snapshot.timestamp < 24 * 60 * 60 * 1000) {
+                            console.log(`Resuming KKPhim crawler from page ${snapshot.nextPage}`);
+                            setAnimeList(snapshot.data);
+                            processData(snapshot.data);
+                            runKKPhimCrawler(false, snapshot.nextPage, snapshot.data);
+                            return;
+                        }
+                    } catch (e) { localStorage.removeItem(KKPHIM_SNAPSHOT_KEY); }
+                 }
+
+                 let hasCache = false;
+                 if (cachedData) {
+                    try {
+                        const parsedCache = JSON.parse(cachedData);
+                        if (parsedCache.length > 0) {
+                            processData(parsedCache);
+                            hasCache = true;
+                        }
+                    } catch(e) {}
+                 }
+
+                 const now = Date.now();
+                 const isExpired = !cachedTime || (now - parseInt(cachedTime) > CACHE_DURATION);
+
+                 if (hasCache) {
+                     if (isExpired) {
+                         runKKPhimCrawler(true); // Update background
+                     } else {
+                         setLoading(false);
+                     }
+                 } else {
+                     runKKPhimCrawler(false); // First load
+                 }
+                 return;
+            }
+
+            // --- OPHIM LOGIC ---
             if (urlToTry === 'OPHIM_API') {
                 const cachedData = localStorage.getItem('ophim_cache');
                 const cachedTime = localStorage.getItem('ophim_timestamp');
                 
                 const crawlerSnapshot = localStorage.getItem(CRAWLER_SNAPSHOT_KEY);
                 
-                let hasSnapshot = false;
                 if (crawlerSnapshot) {
                     try {
                         const snapshot = JSON.parse(crawlerSnapshot);
                         if (Date.now() - snapshot.timestamp < 24 * 60 * 60 * 1000 && snapshot.nextPage <= OPHIM_PAGE_DEPTH) {
                             console.log(`Resuming crawler from page ${snapshot.nextPage}`);
-                            hasSnapshot = true;
                             setAnimeList(snapshot.data);
                             processData(snapshot.data);
                             runOPhimCrawler(false, snapshot.nextPage, snapshot.data);
                             return; 
                         }
                     } catch (e) {
-                        console.error("Invalid snapshot", e);
                         localStorage.removeItem(CRAWLER_SNAPSHOT_KEY);
                     }
                 }
@@ -710,6 +851,7 @@ const App: React.FC = () => {
                     runOPhimCrawler(false);
                 }
             } else {
+                // --- CSV LOGIC ---
                 try {
                     const data = await fetchAndParseCSV(urlToTry);
                     processData(data);
