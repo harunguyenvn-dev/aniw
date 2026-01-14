@@ -22,7 +22,7 @@ import OfflinePage from './components/OfflinePage';
 import OnboardingModal from './components/OnboardingModal';
 import { Anime, Episode, Settings, View, DownloadTask, UserLevelData } from './types';
 import { DATA_SOURCES } from './data/sources';
-import { WifiIcon, WifiSlashIcon } from './components/icons';
+import { WifiIcon, WifiSlashIcon, DownloadIcon } from './components/icons';
 import { fetchKKPhimList, fetchKKPhimDetails } from './data/api/kkphim'; // Import API mới
 
 const ANIME_CSV_URL = 'https://raw.githubusercontent.com/harunguyenvn-dev/data/refs/heads/main/anime.csv';
@@ -73,6 +73,65 @@ const LiquidBackground: React.FC = () => (
         </div>
     </div>
 );
+
+// Circular Progress Component
+const CircularProgress: React.FC<{ percentage: number; onClick: () => void; isExporting?: boolean }> = ({ percentage, onClick, isExporting }) => {
+    const radius = 24;
+    const circumference = 2 * Math.PI * radius;
+    const strokeDashoffset = circumference - (percentage / 100) * circumference;
+
+    return (
+        <div 
+            onClick={onClick}
+            className="fixed bottom-20 right-4 md:bottom-8 md:right-8 z-[90] group cursor-pointer animate-fade-in"
+            title="Nhấn để xuất file CSV"
+        >
+            <div className="relative w-16 h-16 bg-white dark:bg-[#1a1a1a] rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-transform duration-300">
+                {/* Background Circle */}
+                <svg className="absolute w-full h-full -rotate-90 transform" viewBox="0 0 60 60">
+                    <circle
+                        className="text-gray-200 dark:text-gray-700"
+                        strokeWidth="4"
+                        stroke="currentColor"
+                        fill="transparent"
+                        r={radius}
+                        cx="30"
+                        cy="30"
+                    />
+                    {/* Progress Circle */}
+                    <circle
+                        className="text-theme-lime transition-all duration-500 ease-out"
+                        strokeWidth="4"
+                        strokeDasharray={circumference}
+                        strokeDashoffset={strokeDashoffset}
+                        strokeLinecap="round"
+                        stroke="currentColor"
+                        fill="transparent"
+                        r={radius}
+                        cx="30"
+                        cy="30"
+                    />
+                </svg>
+                
+                {/* Inner Content */}
+                <div className="absolute flex flex-col items-center justify-center text-theme-darkest dark:text-theme-lightest font-bold text-[10px]">
+                    {isExporting ? (
+                        <div className="w-5 h-5 border-2 border-theme-olive border-t-transparent rounded-full animate-spin"></div>
+                    ) : percentage < 100 ? (
+                        <span>{Math.round(percentage)}%</span>
+                    ) : (
+                        <DownloadIcon className="w-6 h-6 text-theme-olive dark:text-theme-lime animate-bounce" />
+                    )}
+                </div>
+                
+                {/* Badge Label */}
+                <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-theme-darkest text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                    {percentage < 100 ? 'Đang Crawl...' : 'Xuất CSV'}
+                </div>
+            </div>
+        </div>
+    );
+};
 
 // Level Up Modal Component
 const LevelUpModal: React.FC<{ isOpen: boolean; onClose: () => void; newLevel: number }> = ({ isOpen, onClose, newLevel }) => {
@@ -140,6 +199,8 @@ const App: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [loadingStatus, setLoadingStatus] = useState("đang chuẩn bị...");
     const [isBackgroundFetching, setIsBackgroundFetching] = useState(false);
+    // State for crawl progress (0-100)
+    const [crawlProgress, setCrawlProgress] = useState(0); 
     const [error, setError] = useState<string | null>(null);
     
     // Khởi tạo view dựa trên trạng thái mạng
@@ -449,6 +510,34 @@ const App: React.FC = () => {
         localStorage.setItem('animeAppSettings', JSON.stringify(settings));
     }, [settings]);
 
+    // CSV Export Function
+    const exportDataToCSV = () => {
+        if (animeList.length === 0) {
+            alert("Chưa có dữ liệu để xuất!");
+            return;
+        }
+
+        const headers = ["name", "episodes", "url", "link"];
+        const rows = animeList.flatMap(anime =>
+            anime.episodes.map(ep =>
+                // Escape quotes in strings
+                `"${anime.name.replace(/"/g, '""')}","${ep.episodeTitle.replace(/"/g, '""')}","${ep.url}","${ep.link}"`
+            )
+        );
+
+        const csvContent = "\uFEFF" + [headers.join(","), ...rows].join("\n"); // Add BOM for Excel UTF-8 support
+        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        
+        const link = document.createElement("a");
+        link.href = url;
+        const dateStr = new Date().toISOString().slice(0, 10);
+        link.download = `aniw_export_${dateStr}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     useEffect(() => {
         const processData = (data: Anime[]) => {
             const getTier = (episodeCount: number) => {
@@ -531,6 +620,7 @@ const App: React.FC = () => {
         const runOPhimCrawler = async (isUpdateMode: boolean, startPage: number = 1, initialData: Anime[] = []) => {
             try {
                 setIsBackgroundFetching(true);
+                setCrawlProgress(Math.round(((startPage - 1) / OPHIM_PAGE_DEPTH) * 100)); // Init progress
                 
                 if (startPage > 1 && !isUpdateMode) {
                     setLoadingStatus(`Đang tiếp tục tải từ trang ${startPage}...`);
@@ -543,6 +633,10 @@ const App: React.FC = () => {
                 
                 while (currentPage <= OPHIM_PAGE_DEPTH) {
                     try {
+                        // Update Progress State
+                        const percent = Math.round((currentPage / OPHIM_PAGE_DEPTH) * 100);
+                        setCrawlProgress(percent);
+
                         if (isUpdateMode) {
                             setLoadingStatus(`Đang âm thầm tải trang ${currentPage}...`);
                         } else {
@@ -639,6 +733,7 @@ const App: React.FC = () => {
                 
                 localStorage.setItem('ophim_timestamp', Date.now().toString());
                 setIsBackgroundFetching(false);
+                setCrawlProgress(100);
                 setLoadingStatus("");
                 
             } catch (error: any) {
@@ -651,6 +746,7 @@ const App: React.FC = () => {
         const runKKPhimCrawler = async (isUpdateMode: boolean, startPage: number = 1, initialData: Anime[] = []) => {
             try {
                 setIsBackgroundFetching(true);
+                setCrawlProgress(Math.round(((startPage - 1) / KKPHIM_PAGE_DEPTH) * 100));
                 
                 if (!isUpdateMode) {
                     setLoadingStatus("Đang kết nối KKPhim...");
@@ -661,6 +757,9 @@ const App: React.FC = () => {
 
                 while (currentPage <= KKPHIM_PAGE_DEPTH) {
                     try {
+                         const percent = Math.round((currentPage / KKPHIM_PAGE_DEPTH) * 100);
+                         setCrawlProgress(percent);
+
                          if (isUpdateMode) {
                             setLoadingStatus(`KKPhim: Đang cập nhật trang ${currentPage}...`);
                         } else {
@@ -733,6 +832,7 @@ const App: React.FC = () => {
 
                 localStorage.setItem('kkphim_timestamp', Date.now().toString());
                 setIsBackgroundFetching(false);
+                setCrawlProgress(100);
                 setLoadingStatus("");
 
             } catch (error: any) {
@@ -1292,6 +1392,15 @@ const App: React.FC = () => {
                 </div>
             )}
             
+            {/* Circular Progress & CSV Export Widget (Only shows when OPhim/KKPhim API is active or crawling) */}
+            {(isBackgroundFetching || animeList.length > 0) && (settings.customAnimeDataUrl === 'OPHIM_API' || settings.customAnimeDataUrl === 'KKPHIM_API') && (
+                <CircularProgress 
+                    percentage={crawlProgress} 
+                    onClick={exportDataToCSV} 
+                    isExporting={isBackgroundFetching && crawlProgress < 100}
+                />
+            )}
+
             {(settings.theme === 'liquid-glass' && view !== 'music' && view !== 'random' && view !== 'relaxation' && view !== 'todo-list' && view !== 'offline-videos') && <LiquidBackground />}
             {(view !== 'relaxation' && view !== 'todo-list' && !(selectedAnime && settings.disablePopupPlayer)) && (
                 <Header 
@@ -1369,6 +1478,10 @@ const App: React.FC = () => {
                 }
                 .animate-slide-in-top {
                     animation: slide-in-top 0.4s ease-out forwards;
+                }
+                @keyframes spin-slow {
+                    from { transform: translate(-50%, -50%) rotate(0deg); }
+                    to { transform: translate(-50%, -50%) rotate(360deg); }
                 }
             `}</style>
         </div>
